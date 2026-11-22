@@ -1,8 +1,8 @@
-# PlainSpeak
+# Doc Decode
 
 **Understand before you sign.**
 
-PlainSpeak reads a rental agreement, loan agreement, hospital bill or government
+Doc Decode reads a rental agreement, loan agreement, hospital bill or government
 notice and turns it into something you can act on: the amounts and dates it
 actually contains, the sentences worth a second look, and an explanation of each
 one in plain English or Malayalam. Everything runs on your own machine.
@@ -175,7 +175,7 @@ npm --version
 ### 1. Get the code and create a Python environment
 
 ```bash
-cd plainspeak
+cd leadathon
 
 # Windows (PowerShell)
 python -m venv .venv
@@ -252,7 +252,7 @@ sudo apt install tesseract-ocr-mal   # Malayalam, optional
 ```
 
 **Malayalam OCR without administrator rights.** `C:\Program Files\...` is not
-writable by a normal user, so PlainSpeak also looks for a `tessdata` folder in
+writable by a normal user, so Doc Decode also looks for a `tessdata` folder in
 the project root and points Tesseract at it through `TESSDATA_PREFIX`. That
 folder replaces Tesseract's own, so it must hold *every* language you use:
 
@@ -271,7 +271,7 @@ gitignored. To install system-wide instead, run the Tesseract installer as
 administrator and tick **Malayalam** under "Additional language data", then
 delete the project `tessdata` folder.
 
-PlainSpeak checks which packs are actually present and drops any that are
+Doc Decode checks which packs are actually present and drops any that are
 missing, so a wrong `OCR_LANGS` degrades rather than crashing. The status pill
 in the app reports which languages are live.
 
@@ -463,7 +463,7 @@ elsewhere.
 What happens now:
 
 1. If the browser has a real voice for the language, it is used.
-2. If it does not, PlainSpeak calls its own `/api/tts`, which runs **eSpeak NG
+2. If it does not, Doc Decode calls its own `/api/tts`, which runs **eSpeak NG
    locally**. Robotic, but correct, offline, and nothing leaves the machine.
 3. If eSpeak NG is not installed either, the Read aloud button is **disabled**
    for that language with a note saying why, rather than speaking it wrongly.
@@ -552,7 +552,7 @@ rather than being surprised by it.
 
 ## Choosing a model for your GPU
 
-**This is the single biggest factor in how fast PlainSpeak feels.** Ollama puts
+**This is the single biggest factor in how fast Doc Decode feels.** Ollama puts
 as much of a model in VRAM as fits and runs the rest on the CPU. A model that
 spills is several times slower, with no warning anywhere in the UI.
 
@@ -576,7 +576,7 @@ Measured on the development machine (RTX 3050 Laptop, **4 GB VRAM**):
 
 Same document, same code: **12x** difference, purely from whether the model fits.
 
-**So PlainSpeak lets you set two models.** `OLLAMA_MODEL` handles English and
+**So Doc Decode lets you set two models.** `OLLAMA_MODEL` handles English and
 should be one that fits your VRAM. `OLLAMA_MODEL_ML` is loaded only when the
 user switches to Malayalam, where a bigger multilingual model is worth the wait:
 
@@ -604,7 +604,7 @@ it truncates at exactly the same place, so a retry costs a second full
 generation and fails identically — measured here at **462 s for zero usable
 clauses** before this was fixed.
 
-PlainSpeak instead salvages every complete `{...}` object from the truncated
+Doc Decode instead salvages every complete `{...}` object from the truncated
 reply, keeps those clauses, falls back to rule notes for the rest, and says in
 the warnings that the reply was cut short. One generation, partial success,
 honest about it.
@@ -724,7 +724,7 @@ Ollama, does not re-upload or re-extract the document.
   instruction inside that block. A test covers this.
 - Audio uses your browser's own speech voices. Depending on your operating
   system, the browser may use an online voice — that is the browser's behaviour,
-  not PlainSpeak's.
+  not Doc Decode's.
 
 **This is a hackathon MVP, not a hardened product.** There is no authentication,
 no encryption at rest and no rate limiting. Do not expose it to a network you do
@@ -745,7 +745,7 @@ Run `ollama list` to see what you have, then either `ollama pull <model>` or set
 `OLLAMA_MODEL` to a model in that list.
 
 **"The model did not return valid JSON"**
-Small models sometimes answer in prose. PlainSpeak retries once, tries to recover
+Small models sometimes answer in prose. Doc Decode retries once, tries to recover
 a JSON object from the reply, then falls back to rule-based notes and says so.
 A larger model usually fixes it.
 
@@ -769,7 +769,7 @@ Only matters for scans and photos. Install Tesseract and, on Windows, set
 
 **OCR reads Malayalam as nonsense**
 Install the Malayalam language data and set `OCR_LANGS=eng+mal`. The health badge
-shows whether PlainSpeak can see it.
+shows whether Doc Decode can see it.
 
 **"The backend is not reachable"**
 Make sure `uvicorn` is running on port 8000 and that you opened the frontend on
@@ -817,7 +817,7 @@ Worth saying out loud, including to judges:
   [Choosing a model for your GPU](#choosing-a-model-for-your-gpu).
 - **Malayalam output depends entirely on the model, and small models fail at
   it.** Measured here: `qwen2.5:3b` answered Malayalam requests *in Chinese*.
-  PlainSpeak now checks the script of what comes back and discards a reply that
+  Doc Decode now checks the script of what comes back and discards a reply that
   is not Malayalam rather than presenting it as the translation. It cannot judge
   whether grammatical-looking Malayalam is actually *good*, so treat Malayalam
   output from a small model as a draft and keep English a click away.
@@ -834,6 +834,6 @@ Worth saying out loud, including to judges:
 
 Built as a student hackathon project. The demo documents are entirely fictional.
 
-PlainSpeak points out wording that deserves attention and explains it in simpler
+Doc Decode points out wording that deserves attention and explains it in simpler
 words. It does not decide whether anything is legal, valid or fair, and it can
 miss things. Check the original document before you sign, pay or reply.

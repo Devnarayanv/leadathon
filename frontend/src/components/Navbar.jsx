@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import HealthBadge from "./HealthBadge.jsx";
+import Logo from "./Logo.jsx";
 
 export default function Navbar({ onNew, onPrivacy, health, onRefreshHealth, showNew }) {
   return (
@@ -8,13 +9,14 @@ export default function Navbar({ onNew, onPrivacy, health, onRefreshHealth, show
         <button
           type="button"
           onClick={onNew}
-          className="flex items-baseline gap-2 text-left"
+          className="flex items-center gap-2 text-left"
         >
+          <Logo size={20} className="text-ink" />
           <span className="text-[0.95rem] font-semibold tracking-tight">
-            PlainSpeak
+            Doc Decode
           </span>
           <span className="hidden text-xs text-ink-faint sm:block">
-            Understand before you sign.
+            Understand every document. Know what matters.
           </span>
         </button>
 

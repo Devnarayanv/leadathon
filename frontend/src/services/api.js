@@ -78,9 +78,43 @@ export async function downloadCalendar({ filename, deadlines, reminderDays = 3 }
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `plainspeak-${filename.replace(/\.[^.]+$/, "")}.ics`;
+  link.download = `docdecode-${filename.replace(/\.[^.]+$/, "")}.ics`;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+// Re-runs the type-specific pipeline under a corrected document type. Sends
+// back the text already extracted, so no re-upload and no second OCR pass.
+export function reclassifyDocument({ docType, language, filename, pages, signal }) {
+  return postJson(
+    "/api/reclassify",
+    { doc_type: docType, language, filename, pages },
+    signal,
+  );
+}
+
+// Compares two analysed documents. Both sides are the ComparableDocument shape
+// built from analysis results, never from free text.
+export function compareDocuments({ left, right, signal }) {
+  return postJson("/api/compare", { left, right }, signal);
+}
+
+// Sample documents. The backend route may not exist yet; callers must treat a
+// failure as "no demo section", never as an error to the user.
+export async function listDemoDocuments(signal) {
+  const response = await fetch(`${BASE}/api/demo`, { signal });
+  if (!response.ok) throw await parseError(response);
+  return response.json();
+}
+
+export function demoFileUrl(id) {
+  return `${BASE}/api/demo/${encodeURIComponent(id)}/file`;
+}
+
+// Tender eligibility checklist. Sends what the user typed plus the tender's
+// requirements; the backend returns buckets, never an eligibility verdict.
+export function checkEligibility({ business, requirements, signal }) {
+  return postJson("/api/eligibility", { ...business, requirements }, signal);
 }

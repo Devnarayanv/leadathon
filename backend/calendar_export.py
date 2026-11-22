@@ -6,7 +6,7 @@ from typing import List
 
 from schemas import CalendarDeadline
 
-PRODID = "-//PlainSpeak//Document Deadlines//EN"
+PRODID = "-//Doc Decode//Document Deadlines//EN"
 
 
 def _escape(text: str) -> str:
@@ -38,7 +38,7 @@ def _uid(deadline: CalendarDeadline, filename: str) -> str:
     digest = hashlib.sha1(
         ("%s|%s|%s" % (filename, deadline.date_iso, deadline.description)).encode("utf-8")
     ).hexdigest()[:16]
-    return "%s@plainspeak.local" % digest
+    return "%s@docdecode.local" % digest
 
 
 def build_ics(
@@ -59,7 +59,7 @@ def build_ics(
     ]
     for deadline in deadlines:
         day = date.fromisoformat(deadline.date_iso)
-        description_parts = ["Deadline found by PlainSpeak in: " + filename]
+        description_parts = ["Deadline found by Doc Decode in: " + filename]
         if deadline.page:
             description_parts.append("Page %d of the document." % deadline.page)
         if deadline.source_text:
@@ -74,7 +74,7 @@ def build_ics(
             # All-day event: DTEND is exclusive.
             "DTSTART;VALUE=DATE:" + day.strftime("%Y%m%d"),
             "DTEND;VALUE=DATE:" + (day + timedelta(days=1)).strftime("%Y%m%d"),
-            _fold("SUMMARY:" + _escape("PlainSpeak: " + deadline.description)),
+            _fold("SUMMARY:" + _escape("Doc Decode: " + deadline.description)),
             _fold("DESCRIPTION:" + _escape("\n".join(description_parts))),
             "TRANSP:TRANSPARENT",
             "BEGIN:VALARM",

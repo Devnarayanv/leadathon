@@ -223,6 +223,178 @@ DOCUMENTS = {
     "demo_government_notice.pdf": ("Synthetic Government Notice (Demo)", NOTICE),
 }
 
+
+# ---------------------------------------------------------------------------
+# Structured samples for the invoice, purchase order, tender, GST, insurance and
+# loan checks. Every party, number and reference is invented. The loan EMI is
+# computed here from the stated principal, rate and tenure, so the stated figure
+# is exact and the verification check has something real to agree with.
+# ---------------------------------------------------------------------------
+
+def _emi_text(principal: str, annual_percent: str, months: int) -> str:
+    from decimal import ROUND_HALF_UP, Decimal, localcontext
+
+    with localcontext() as context:
+        context.prec = 28
+        p = Decimal(principal)
+        r = Decimal(annual_percent) / Decimal(100) / Decimal(12)
+        growth = (Decimal(1) + r) ** months
+        emi = p * r * growth / (growth - Decimal(1))
+    value = emi.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return "{:,.2f}".format(value)
+
+
+INVOICE_MISMATCH = """TAX INVOICE
+
+{banner}
+
+Supplier: Sample Traders Pvt Ltd (FICTIONAL)
+Supplier GSTIN: 00SYNTH0000X1Z0 (synthetic, not a real registration)
+Buyer: Demo Buyer Company (FICTIONAL)
+Invoice No: SYN-INV-1001
+Invoice Date: 05/03/2026
+
+Description        Qty  Unit  Rate      Amount
+Steel bolts         10  Nos   120.00    1200.00
+Copper wire          5  Mtr   300.00    1500.00
+Cable clips         20  Nos    15.00     350.00
+
+Subtotal: 3050.00
+CGST @ 9%: 274.50
+SGST @ 9%: 274.50
+Grand Total: 3599.00
+
+Payment terms: Net 30 days from the invoice date.
+"""
+
+PURCHASE_ORDER = """PURCHASE ORDER
+
+{banner}
+
+PO No: SYN-PO-5501
+PO Date: 01/03/2026
+Buyer: Demo Buyer Company (FICTIONAL)
+Supplier: Sample Traders Pvt Ltd (FICTIONAL)
+
+Description        Qty  Unit  Rate      Amount
+Steel bolts         10  Nos   120.00    1200.00
+Copper wire          5  Mtr   300.00    1500.00
+Cable clips         20  Nos    15.00     300.00
+
+Subtotal: 3000.00
+CGST @ 9%: 270.00
+SGST @ 9%: 270.00
+Total: 3540.00
+"""
+
+TENDER = """TENDER NOTICE (SYNTHETIC)
+
+{banner}
+
+Tender No: SYN-NIT-2026-17
+Issued by: Office of the Demo Public Works Department (FICTIONAL)
+Estimated value: Rs. 12,50,000.00
+EMD (Earnest Money Deposit): Rs. 25,000.00 (2% of estimated value)
+The bidder must have a minimum average annual turnover of Rs. 50,00,000 in the last three financial years.
+Last date for bid submission: 15/12/2026
+Bid opening date: 17/12/2026
+
+Eligibility criteria
+1. The bidder must have a minimum average annual turnover of Rs. 50,00,000 (mandatory).
+2. The bidder must hold a valid ISO 9001:2015 certificate (mandatory).
+3. The bidder must have completed at least two similar works in the last five years.
+4. Registration with the GST portal is required.
+
+Documents to be submitted
+- Copy of PAN card
+- Copy of GST registration certificate
+- Audited balance sheet for the last three years
+- Self-attested affidavit as per the format in Annexure A
+"""
+
+GST_NOTICE = """OFFICE OF THE DEMO GST OFFICER (FICTIONAL)
+
+{banner}
+
+Reference No: SYN-GST-2026-0042
+Date of issue: 20/10/2026
+Section 73 of the CGST Act, 2017 (synthetic reference)
+Tax period: April 2025 to March 2026
+Tax demanded: Rs. 45,000.00
+Interest: Rs. 6,200.00
+Penalty: Rs. 4,500.00
+Reply by: 15/12/2026
+
+The taxpayer is asked to file a reply, with any supporting documents, within the time stated above.
+"""
+
+INSURANCE_POLICY = """HEALTH INSURANCE POLICY SCHEDULE (SYNTHETIC)
+
+{banner}
+
+Policy number: SYN-POL-778812
+Insurer: Demo General Insurance Co (FICTIONAL)
+Policy start date: 01/04/2026
+Policy end date: 31/03/2027
+Sum insured: Rs. 5,00,000.00
+Base premium: Rs. 10,508.47
+GST @ 18%: Rs. 1,891.53
+Total premium: Rs. 12,400.00
+Deductible: Rs. 5,000.00
+"""
+
+LOAN_SAMPLE = (
+    """PERSONAL LOAN SANCTION LETTER (SYNTHETIC)
+
+{banner}
+
+Loan amount (principal): Rs. 5,00,000.00
+Annual interest rate: 12% per annum
+Tenure: 36 months
+Monthly EMI: Rs. """
+    + _emi_text("500000", "12", 36)
+    + """
+
+The EMI above is a synthetic figure computed from the principal, rate and tenure stated in this letter.
+"""
+)
+
+AMBIGUOUS_DATES = """NOTICE TO PAY (SYNTHETIC)
+
+{banner}
+
+Reference: SYN-AMB-7
+Please pay the outstanding amount of Rs. 8,000.00 by 03/04/2026 or 04/03/2026 as previously agreed.
+The second instalment is due 2 weeks after the date of this notice, subject to any written extension.
+A late fee applies from the 5th day of every month if payment is not received.
+"""
+
+NO_DEADLINES = """GENERAL LETTER (SYNTHETIC)
+
+{banner}
+
+Dear Sample Customer,
+
+Thank you for your interest in our products. This letter is a plain example with no dates or payment obligations stated.
+
+We look forward to working with you.
+
+Regards,
+Demo Team (FICTIONAL)
+"""
+
+SAMPLES = {
+    "sample_invoice_mismatch.pdf": ("Synthetic Invoice With One Wrong Line (Sample)", INVOICE_MISMATCH),
+    "sample_purchase_order.pdf": ("Synthetic Purchase Order (Sample)", PURCHASE_ORDER),
+    "sample_tender.pdf": ("Synthetic Tender Notice (Sample)", TENDER),
+    "sample_gst_notice.pdf": ("Synthetic GST Notice (Sample)", GST_NOTICE),
+    "sample_insurance_policy.pdf": ("Synthetic Insurance Policy Schedule (Sample)", INSURANCE_POLICY),
+    "sample_loan.pdf": ("Synthetic Loan Sanction Letter (Sample)", LOAN_SAMPLE),
+    "sample_ambiguous_dates.pdf": ("Synthetic Notice With Ambiguous Dates (Sample)", AMBIGUOUS_DATES),
+    "sample_no_deadlines.pdf": ("Synthetic Letter With No Deadlines (Sample)", NO_DEADLINES),
+}
+DOCUMENTS.update(SAMPLES)
+
 PAGE_WIDTH, PAGE_HEIGHT = fitz.paper_size("a4")
 MARGIN = 56
 FONT = "helv"
@@ -232,7 +404,7 @@ LINE_HEIGHT = 14.5
 
 def write_pdf(path: Path, title: str, body: str) -> None:
     doc = fitz.open()
-    doc.set_metadata({"title": title, "author": "PlainSpeak demo generator"})
+    doc.set_metadata({"title": title, "author": "Doc Decode demo generator"})
     lines = body.format(banner=BANNER).split("\n")
     page = doc.new_page(width=PAGE_WIDTH, height=PAGE_HEIGHT)
     y = MARGIN

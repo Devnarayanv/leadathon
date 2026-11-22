@@ -54,7 +54,7 @@ export default function LanguageSelector({
           <span>
             Malayalam uses a larger model
             {malayalamModel ? ` (${malayalamModel})` : ""}, so the first switch is
-            slower while it loads. PlainSpeak checks that the reply really is
+            slower while it loads. Doc Decode checks that the reply really is
             Malayalam script and falls back to rule-based notes rather than show
             you something it cannot vouch for. The original clause text is never
             translated.

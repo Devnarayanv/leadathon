@@ -151,6 +151,18 @@ export default function DeadlineList({ deadlines, filename, language }) {
                     </span>
                     <span>·</span>
                     <span>&ldquo;{item.date_text}&rdquo;</span>
+                    {item.recurrence && (
+                      <>
+                        <span>·</span>
+                        <span className="text-warn">Repeats: {item.recurrence}</span>
+                      </>
+                    )}
+                    {item.evidence_status === "calculated" && (
+                      <>
+                        <span>·</span>
+                        <span className="text-warn">Calculated, check before export</span>
+                      </>
+                    )}
                   </p>
 
                   {dated && (

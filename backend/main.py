@@ -1,4 +1,4 @@
-"""PlainSpeak FastAPI app.
+"""Doc Decode FastAPI app.
 
 Uploads are held in memory for the length of one request and never written to
 disk, so there is no stored copy to delete afterwards. Document text is not
@@ -15,8 +15,11 @@ from fastapi.responses import JSONResponse, Response
 import ai_explainer
 import calendar_export
 import clause_detector
+import comparison
 import config
+import demo_catalog
 import document_classifier
+import eligibility as tender_eligibility
 import ocr_reader
 import ollama_service
 import pdf_reader
@@ -28,8 +31,15 @@ from schemas import (
     AskRequest,
     AskResponse,
     CalendarRequest,
+    CompareRequest,
+    CompareResponse,
+    DemoDocument,
+    EligibilityRequest,
+    EligibilityResponse,
     ExplainRequest,
     ExplainResponse,
+    ReclassifyRequest,
+    ReclassifyResponse,
     TtsRequest,
 )
 
@@ -37,10 +47,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-logger = logging.getLogger("plainspeak")
+logger = logging.getLogger("doc_decode")
 
 app = FastAPI(
-    title="PlainSpeak API",
+    title="Doc Decode API",
     version="1.0.0",
     description="Local document understanding. Rule engine plus a local Ollama model.",
 )
@@ -204,7 +214,7 @@ def calendar(request: CalendarRequest) -> Response:
         content=ics,
         media_type="text/calendar; charset=utf-8",
         headers={
-            "Content-Disposition": 'attachment; filename="plainspeak-%s.ics"' % name
+            "Content-Disposition": 'attachment; filename="docdecode-%s.ics"' % name
         },
     )
 
@@ -226,6 +236,56 @@ def tts(request: TtsRequest) -> Response:
         content=audio,
         media_type="audio/wav",
         headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/api/reclassify", response_model=ReclassifyResponse)
+def reclassify(request: ReclassifyRequest) -> ReclassifyResponse:
+    """Re-run the structured pipeline under a type the user picked. Takes the
+    text the first analysis already produced, so no file is re-uploaded."""
+    if request.doc_type != "other" and request.doc_type not in document_classifier.RULES:
+        raise HTTPException(status_code=400, detail="Unknown document type: %s" % request.doc_type)
+    language = request.language if request.language in ("en", "ml") else "en"
+    return pipeline.reclassify(
+        doc_type=request.doc_type,
+        pages=request.pages,
+        language=language,
+        filename=request.filename,
+    )
+
+
+@app.post("/api/compare", response_model=CompareResponse)
+def compare(request: CompareRequest) -> CompareResponse:
+    """Compare an invoice with a purchase order, from the facts and items already read."""
+    return comparison.compare(request.left, request.right)
+
+
+@app.post("/api/eligibility", response_model=EligibilityResponse)
+def eligibility(request: EligibilityRequest) -> EligibilityResponse:
+    """A checklist of the tender's requirements against what the user entered.
+    It never says the user is or is not eligible."""
+    return tender_eligibility.check(request)
+
+
+@app.get("/api/demo", response_model=List[DemoDocument])
+def demo_list() -> List[DemoDocument]:
+    return demo_catalog.list_documents()
+
+
+@app.get("/api/demo/{demo_id}/file")
+def demo_file(demo_id: str) -> Response:
+    """Serve an allowlisted demo PDF. The client sends an id, never a path."""
+    data = demo_catalog.file_bytes(demo_id)
+    name = demo_catalog.filename_for(demo_id)
+    if data is None or name is None:
+        raise HTTPException(status_code=404, detail="Unknown demo document.")
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'inline; filename="%s"' % name,
+            "Cache-Control": "no-store",
+        },
     )
 
 

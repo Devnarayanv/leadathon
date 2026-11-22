@@ -6,7 +6,10 @@ to an action ("within 30 days"). Everything else stays out, and the user
 verifies what is left before it reaches a calendar.
 """
 import re
+from datetime import date
 from typing import Dict, List, Optional, Tuple
+
+from datetime import timedelta
 
 import dates
 from schemas import Deadline, Segment
@@ -98,6 +101,86 @@ def _cue_hits(haystack: str) -> List[Tuple[str, int]]:
     return found
 
 
+
+# "on or before the 5th day of every English calendar month"
+_RECURRING = re.compile(
+    r"\b(\d{1,2})(?:st|nd|rd|th)?\s+day\s+of\s+(?:every|each)\s+(?:english\s+)?"
+    r"(?:calendar\s+)?month\b",
+    re.IGNORECASE,
+)
+# "at least 30 days before 28th February 2026" / "30 days prior to ..."
+_DAYS_BEFORE = re.compile(
+    r"\b(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|thirty|sixty|ninety)"
+    r"\s+days?\s+(?:before|prior\s+to)\b",
+    re.IGNORECASE,
+)
+_NUMBER_WORDS = dict(dates.WORD_NUMBERS, fifteen=15, thirty=30, sixty=60, ninety=90)
+
+
+def _recurring_deadlines(segment: Segment, text: str, search_text: str, first_id: int) -> List[Tuple[bool, Deadline]]:
+    """A monthly obligation with no calendar date. Kept as a recurring item
+    that needs verification, never turned into a single invented date."""
+    out = []
+    for match in _RECURRING.finditer(search_text):
+        day = int(match.group(1))
+        if not 1 <= day <= 31:
+            continue
+        out.append(
+            (
+                True,
+                Deadline(
+                    id=first_id + len(out),
+                    date_iso=None,
+                    date_text=match.group(0),
+                    description="Payment or action due on day %d of every month" % day,
+                    source_text=truncate(text, 300),
+                    page=segment.page,
+                    confidence="medium",
+                    evidence_status="extracted",
+                    needs_verification=True,
+                    recurrence="monthly, day %d" % day,
+                    verified=False,
+                ),
+            )
+        )
+    return out
+
+
+def _days_before_deadlines(segment: Segment, text: str, search_text: str, first_id: int) -> List[Tuple[bool, Deadline]]:
+    """"at least 30 days before <date>": the notice date is calculated from the
+    stated date. The formula is shown in the description and the item is
+    marked as calculated, so it is checked before it reaches a calendar."""
+    out = []
+    for match in _DAYS_BEFORE.finditer(search_text):
+        raw = match.group(1).lower()
+        days = int(raw) if raw.isdigit() else _NUMBER_WORDS.get(raw)
+        if not days:
+            continue
+        iso, raw_date, confidence = dates.parse_date(search_text[match.end(): match.end() + 60])
+        if not iso:
+            continue
+        anchor = date.fromisoformat(iso)
+        calculated = (anchor - timedelta(days=days)).isoformat()
+        out.append(
+            (
+                True,
+                Deadline(
+                    id=first_id + len(out),
+                    date_iso=calculated,
+                    date_text="%s days before %s" % (match.group(1), raw_date),
+                    description="Notice must be given by this date (%d days before %s)" % (days, raw_date),
+                    source_text=truncate(text, 300),
+                    page=segment.page,
+                    confidence="low" if confidence == "low" else "medium",
+                    evidence_status="calculated",
+                    needs_verification=True,
+                    verified=False,
+                ),
+            )
+        )
+    return out
+
+
 _CONF_RANK = {"high": 0, "medium": 1, "low": 2}
 
 
@@ -136,6 +219,11 @@ def extract_deadlines(segments: List[Segment], max_items: int = 15) -> List[Dead
         # that one copy so offsets stay valid.
         search_text = fold_malayalam(text)
         lowered = search_text.lower()
+        extra = _recurring_deadlines(segment, text, search_text, next_id)
+        extra += _days_before_deadlines(segment, text, search_text, next_id + len(extra))
+        out.extend(extra)
+        next_id += len(extra)
+
         cue_hits = _cue_hits(haystack)
         if not cue_hits:
             continue

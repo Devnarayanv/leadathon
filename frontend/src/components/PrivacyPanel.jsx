@@ -3,7 +3,7 @@ import { ShieldCheck, X } from "lucide-react";
 const POINTS = [
   [
     "Where your document goes",
-    "The file is uploaded to the PlainSpeak backend running on this machine, held in memory for the length of that one request, and dropped when the request ends. This app does not write your document to disk.",
+    "The file is uploaded to the Doc Decode backend running on this machine, held in memory for the length of that one request, and dropped when the request ends. This app does not write your document to disk.",
   ],
   [
     "Where the AI runs",
@@ -27,11 +27,11 @@ const POINTS = [
   ],
   [
     "Audio",
-    "Speech uses your browser's own voices first. Windows ships no Malayalam voice, so when none is found PlainSpeak falls back to eSpeak NG running locally on this machine rather than reading Malayalam in an English voice. If eSpeak NG is not installed, the Read aloud button is disabled for that language instead of speaking the wrong one. Install it with: winget install eSpeak-NG.eSpeak-NG",
+    "Speech uses your browser's own voices first. Windows ships no Malayalam voice, so when none is found Doc Decode falls back to eSpeak NG running locally on this machine rather than reading Malayalam in an English voice. If eSpeak NG is not installed, the Read aloud button is disabled for that language instead of speaking the wrong one. Install it with: winget install eSpeak-NG.eSpeak-NG",
   ],
   [
     "A note on browser voices",
-    "Some browsers (notably Edge) offer 'Online (Natural)' voices that send the text to the vendor's servers to be spoken. PlainSpeak cannot tell these apart from local ones, so if that matters to you, pick a local voice in the voice selector or rely on the offline engine.",
+    "Some browsers (notably Edge) offer 'Online (Natural)' voices that send the text to the vendor's servers to be spoken. Doc Decode cannot tell these apart from local ones, so if that matters to you, pick a local voice in the voice selector or rely on the offline engine.",
   ],
   [
     "What this is not",

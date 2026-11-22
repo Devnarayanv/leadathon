@@ -4,7 +4,26 @@ import PrivacyPanel from "./components/PrivacyPanel.jsx";
 import Home from "./pages/Home.jsx";
 import Analysis from "./pages/Analysis.jsx";
 import { useSpeech } from "./components/AudioControls.jsx";
-import { analyzeDocument, explainClauses, getHealth } from "./services/api.js";
+import {
+  analyzeDocument,
+  compareDocuments,
+  explainClauses,
+  getHealth,
+  reclassifyDocument,
+} from "./services/api.js";
+import { loadRecent, rememberRecent } from "./services/recent.js";
+
+// Builds the ComparableDocument the backend expects from a finished analysis.
+// Only extracted facts and line items cross over; no document text is sent.
+function toComparable(result) {
+  return {
+    analysis_id: result.analysis_id,
+    filename: result.filename,
+    doc_type: result.classification.doc_type,
+    facts: result.facts ?? [],
+    line_items: result.line_items ?? [],
+  };
+}
 
 export default function App() {
   const [health, setHealth] = useState(null);
@@ -13,9 +32,14 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [languageBusy, setLanguageBusy] = useState(false);
   const [retryBusy, setRetryBusy] = useState(false);
+  const [reclassifyBusy, setReclassifyBusy] = useState(false);
+  const [compareBusy, setCompareBusy] = useState(false);
+  const [compareResult, setCompareResult] = useState(null);
+  const [compareError, setCompareError] = useState("");
   const [error, setError] = useState("");
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [lastFile, setLastFile] = useState(null);
+  const [recent, setRecent] = useState(loadRecent);
   // Health reports whether the offline engine can cover languages the
   // browser has no voice for.
   const speech = useSpeech({
@@ -45,6 +69,16 @@ export default function App() {
       const analysis = await analyzeDocument({ file, language });
       setResult(analysis);
       setLastFile(file);
+      setCompareResult(null);
+      setCompareError("");
+      setRecent(
+        rememberRecent({
+          id: analysis.analysis_id,
+          filename: analysis.filename,
+          docType: analysis.classification.doc_type,
+          label: analysis.classification.label,
+        }),
+      );
       // The analysis response carries fresh Ollama state; keep the badge honest.
       setHealth((current) =>
         current ? { ...current, ollama: analysis.ollama } : current,
@@ -112,11 +146,69 @@ export default function App() {
     setRetryBusy(false);
   };
 
+  // Category correction. The backend re-runs the type-specific checks on the
+  // text already extracted; the result is replaced field by field, never
+  // patched with guessed values.
+  const onReclassify = async (docType) => {
+    if (!result || reclassifyBusy) return;
+    setReclassifyBusy(true);
+    try {
+      const response = await reclassifyDocument({
+        docType,
+        language,
+        filename: result.filename,
+        pages: result.pages,
+      });
+      setResult((current) => ({
+        ...current,
+        classification: response.classification,
+        facts: response.facts,
+        clauses: response.clauses,
+        deadlines: response.deadlines,
+        line_items: response.line_items,
+        verification: response.verification,
+        findings: response.findings,
+        actions: response.actions,
+        requirements: response.requirements,
+        attention_counts: response.attention_counts,
+        warnings: response.warnings,
+      }));
+      setCompareResult(null);
+    } catch (exception) {
+      setError(exception.message);
+    } finally {
+      setReclassifyBusy(false);
+    }
+  };
+
+  // Second document is analysed the normal way, then both sides go to
+  // /api/compare. Nothing is inferred on this side: the backend decides.
+  const onCompareFile = async (file) => {
+    if (!result || compareBusy) return;
+    setCompareBusy(true);
+    setCompareError("");
+    try {
+      const other = await analyzeDocument({ file, language });
+      const response = await compareDocuments({
+        left: toComparable(result),
+        right: toComparable(other),
+      });
+      setCompareResult(response);
+    } catch (exception) {
+      setCompareResult(null);
+      setCompareError(exception.message);
+    } finally {
+      setCompareBusy(false);
+    }
+  };
+
   const onNew = () => {
     speech.stop();
     setResult(null);
     setError("");
     setLastFile(null);
+    setCompareResult(null);
+    setCompareError("");
     refreshHealth();
     window.scrollTo({ top: 0 });
   };
@@ -141,6 +233,12 @@ export default function App() {
           onRetryAi={onRetryAi}
           retryBusy={retryBusy}
           malayalamModel={health?.ollama_malayalam?.model}
+          onReclassify={onReclassify}
+          reclassifyBusy={reclassifyBusy}
+          onCompareFile={onCompareFile}
+          compareBusy={compareBusy}
+          compareResult={compareResult}
+          compareError={compareError}
         />
       ) : (
         <Home
@@ -150,11 +248,12 @@ export default function App() {
           error={error}
           onClearError={() => setError("")}
           aiEnabled={aiReady}
+          recent={recent}
         />
       )}
 
       <footer className="border-t border-line py-6 text-center text-xs text-ink-soft">
-        PlainSpeak &middot; local document understanding &middot; attention indicators,
+        Doc Decode &middot; local document understanding &middot; attention indicators,
         not legal advice
         {lastFile && <span className="ml-1">&middot; analysed locally</span>}
       </footer>

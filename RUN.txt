@@ -1,5 +1,5 @@
 ================================================================
- PLAINSPEAK - START / STOP / RESTART CHEAT SHEET  (Windows)
+ DOC DECODE - START / STOP / RESTART CHEAT SHEET  (Windows)
 ================================================================
 Project folder : C:\Devan\Projects\leadathon
 Backend        : http://localhost:8000      (FastAPI + uvicorn)

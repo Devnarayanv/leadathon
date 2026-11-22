@@ -1,6 +1,6 @@
 // Google Calendar event links.
 //
-// This is the one place in PlainSpeak where data deliberately leaves the
+// This is the one place in Doc Decode where data deliberately leaves the
 // machine: opening the link hands Google the date, the short description and
 // the file name. The document's own wording is NEVER put in the URL, and the
 // UI says so next to the button. Everything else stays local.
@@ -30,12 +30,12 @@ export function googleCalendarUrl(deadline, filename) {
   if (!isExportable(deadline)) return null;
 
   const details = [
-    "Deadline found by PlainSpeak.",
+    "Deadline found by Doc Decode.",
     filename ? `Source file: ${filename}` : null,
     deadline.page != null ? `Page ${deadline.page} of the document.` : null,
     "You confirmed this date yourself. Check it against the original document.",
     "",
-    "PlainSpeak does not send your document anywhere. Only this event's date,",
+    "Doc Decode does not send your document anywhere. Only this event's date,",
     "description and file name were shared when you opened this link.",
   ]
     .filter(Boolean)

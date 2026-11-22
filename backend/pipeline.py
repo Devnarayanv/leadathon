@@ -8,12 +8,33 @@ import ai_explainer
 import clause_detector
 import config
 import deadline_extractor
+import doc_intel
 import document_classifier
 import fact_extractor
+import findings as finding_builder
+import line_items as item_reader
 import ollama_service
 import pdf_reader
-from schemas import AnalysisResult, Language
+import verification as verifier
+from schemas import (
+    ActionItem,
+    AnalysisResult,
+    Clause,
+    Deadline,
+    Fact,
+    Finding,
+    Language,
+    LineItem,
+    PageText,
+    ReclassifyResponse,
+    Segment,
+    TenderRequirement,
+    VerificationReport,
+)
 from utils import build_segments
+
+# Types that carry a line-item table worth reading.
+ITEM_TYPES = {"invoice", "purchase_order"}
 
 logger = logging.getLogger(__name__)
 
@@ -98,10 +119,18 @@ def analyse(
     segments = build_segments((p.page, p.text) for p in pages)
     warnings: List[str] = list(info["warnings"])
 
+    stages: List[str] = ["Text read (%s)" % ", ".join(sorted({p.source for p in pages}))]
     classification = document_classifier.classify(full_text)
+    stages.append("Document type classified")
     facts = fact_extractor.extract_facts(segments, classification.doc_type)
     clauses = clause_detector.detect_clauses(segments, classification.doc_type)
     deadlines = deadline_extractor.extract_deadlines(segments)
+    stages += ["Facts extracted", "Clauses detected", "Deadlines found"]
+
+    (
+        facts, line_items, requirements, verification, findings, actions, type_stages,
+    ) = _type_specific(classification.doc_type, pages, facts, clauses, deadlines)
+    stages += type_stages
 
     doc_label = classification.label if classification.certain else "unknown / uncertain"
 
@@ -130,6 +159,7 @@ def analyse(
         warnings.append(
             "Nothing could be analysed because no text was extracted from the file."
         )
+    stages.append("Explanations written" if summary_source == "llm" else "Rule explanations written")
 
     logger.info(
         "analysed %s (%s, %d pages, %d chars, %d clauses) in %dms",
@@ -148,6 +178,7 @@ def analyse(
         page_count=info.get("total_pages") or len(pages),
         classification=classification,
         language=language,
+        doc_type_options=document_classifier.options(),
         extraction_sources=sorted({p.source for p in pages}),
         ocr_used=info["ocr_used"],
         ocr_available=info["ocr_available"],
@@ -156,6 +187,11 @@ def analyse(
         facts=facts,
         clauses=clauses,
         deadlines=deadlines,
+        line_items=line_items,
+        verification=verification,
+        findings=findings,
+        actions=actions,
+        requirements=requirements,
         segments=segments,
         pages=pages,
         summary=summary,
@@ -164,6 +200,89 @@ def analyse(
         warnings=_dedupe(warnings),
         attention_counts=clause_detector.attention_counts(clauses),
         duration_ms=int((time.monotonic() - started) * 1000),
+        stages=stages,
+    )
+
+
+def _type_specific(
+    doc_type: str,
+    pages: List[PageText],
+    facts: List[Fact],
+    clauses: List[Clause],
+    deadlines: List[Deadline],
+) -> Tuple[
+    List[Fact], List[LineItem], List[TenderRequirement], VerificationReport,
+    List[Finding], List[ActionItem], List[str],
+]:
+    """The structured-document half of the pipeline, shared by analyse and reclassify.
+
+    Fields the type expects are added to the generic facts only where the
+    generic extractor did not already produce that key.
+    """
+    stages: List[str] = []
+    seen = {fact.key for fact in facts}
+    merged = list(facts)
+    for fact in doc_intel.fields(doc_type, pages):
+        if fact.key not in seen:
+            seen.add(fact.key)
+            merged.append(fact)
+    if doc_type in doc_intel.SPECS:
+        stages.append("Labelled fields read")
+
+    line_items: List[LineItem] = []
+    if doc_type in ITEM_TYPES:
+        line_items = item_reader.extract(doc_intel.item_source(pages))
+        stages.append("Line items read")
+
+    requirements: List[TenderRequirement] = []
+    if doc_type == "tender":
+        requirements = doc_intel.tender_requirements(pages)
+        stages.append("Tender requirements read")
+
+    report = verifier.verify(doc_type, merged, line_items)
+    if report.applicable:
+        stages.append("Arithmetic verified")
+
+    found, actions = finding_builder.build(doc_type, merged, deadlines, clauses, report)
+    stages.append("Findings and actions built")
+    return merged, line_items, requirements, report, found, actions, stages
+
+
+def reclassify(
+    doc_type: str,
+    pages: List[PageText],
+    language: Language = "en",
+    filename: str = "document",
+) -> ReclassifyResponse:
+    """Re-run the pipeline under a type the user chose, from text already extracted.
+
+    No file is needed and no OCR runs again. Explanations are rule-based here;
+    the AI step belongs to a fresh analysis.
+    """
+    full_text = "\n\n".join(p.text for p in pages if p.text.strip())
+    segments: List[Segment] = build_segments((p.page, p.text) for p in pages)
+    classification = document_classifier.forced(doc_type, full_text)
+    facts = fact_extractor.extract_facts(segments, doc_type)
+    clauses = clause_detector.detect_clauses(segments, doc_type)
+    deadlines = deadline_extractor.extract_deadlines(segments)
+    for clause in clauses:
+        clause.explanation = _rule_only_explanation(clause, language)
+
+    facts, line_items, requirements, report, findings, actions, _stages = _type_specific(
+        doc_type, pages, facts, clauses, deadlines
+    )
+    return ReclassifyResponse(
+        classification=classification,
+        facts=facts,
+        clauses=clauses,
+        deadlines=deadlines,
+        line_items=line_items,
+        verification=report,
+        findings=findings,
+        actions=actions,
+        requirements=requirements,
+        attention_counts=clause_detector.attention_counts(clauses),
+        warnings=["Re-run under the type you chose. Explanations are rule-based."],
     )
 
 
