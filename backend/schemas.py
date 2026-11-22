@@ -140,6 +140,8 @@ class CalendarDeadline(BaseModel):
 class CalendarRequest(BaseModel):
     filename: str = "document"
     deadlines: List[CalendarDeadline] = Field(min_length=1, max_length=50)
+    # Days before the date to fire the reminder. 0 means on the day itself.
+    reminder_days: int = Field(default=3, ge=0, le=60)
 
 
 class ExplainRequest(BaseModel):
@@ -149,6 +151,11 @@ class ExplainRequest(BaseModel):
     doc_type: str = "other"
     language: Language = "en"
     clauses: List[Clause] = Field(min_length=1, max_length=25)
+
+
+class TtsRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=1200)
+    language: Language = "en"
 
 
 class ExplainResponse(BaseModel):

@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Sequence
 
 import dates
 from schemas import Clause, Segment
-from utils import normalise, segment_context, truncate
+from utils import normalise, normalise_phrase, segment_context, truncate
 
 # Shortest/longest sentence worth flagging.
 MIN_LEN = 25
@@ -29,6 +29,7 @@ RULES: List[Dict] = [
             "auto renewal", "deemed to be renewed", "deemed renewed",
             "shall stand renewed", "renewed automatically",
             "unless terminated", "unless either party",
+            "സ്വയം പുതുക്ക", "പുതുക്കപ്പെടും",
         ],
         "support": ["renew", "extend", "continue", "term"],
         "negative": ["shall not be renewed", "no automatic renewal", "cannot be renewed"],
@@ -43,6 +44,7 @@ RULES: List[Dict] = [
         "primary": [
             "penalty", "penal interest", "penal charge", "liquidated damages",
             "shall be liable to pay a fine", "fine of rs",
+            "പിഴ",
         ],
         "support": [],
         "negative": ["no penalty", "without penalty", "penalty free", "waive the penalty"],
@@ -57,6 +59,7 @@ RULES: List[Dict] = [
             "late payment", "late fee", "delayed payment", "overdue",
             "not paid on or before", "default in payment", "fails to pay",
             "delay in payment",
+            "വൈകി", "കുടിശ്ശിക",
         ],
         "support": [],
         "negative": ["no late fee", "without any late fee"],
@@ -72,6 +75,7 @@ RULES: List[Dict] = [
             "maintenance charge", "service charge", "processing fee", "documentation charge",
             "administrative charge", "shall be borne by", "at the cost of the",
             "payable separately", "excluding",
+            "അധിക തുക", "അധിക ചാർജ്",
         ],
         "support": ["pay", "charge", "fee", "cost", "borne", "rs", "amount", "%"],
         "negative": ["no additional charge", "no extra charge", "inclusive of all charges"],
@@ -86,6 +90,7 @@ RULES: List[Dict] = [
         "primary": [
             "lock-in", "lock in period", "minimum period of", "shall not vacate before",
             "cannot terminate before", "minimum commitment",
+            "ലോക്ക് ഇൻ", "കുറഞ്ഞ കാലാവധി",
         ],
         "support": ["month", "year", "period", "term", "day"],
         "negative": ["no lock-in", "without any lock-in"],
@@ -101,6 +106,7 @@ RULES: List[Dict] = [
             "early termination", "terminate the agreement before", "premature termination",
             "foreclosure", "pre-closure", "prepayment charge", "pre-payment charge",
             "vacate before the expiry", "terminate this agreement",
+            "നേരത്തെ അവസാനിപ്പിക്ക",
         ],
         "support": [],
         "negative": [],
@@ -115,6 +121,7 @@ RULES: List[Dict] = [
             "deduct", "deducted from the deposit", "forfeit", "forfeited",
             "adjust against the deposit", "set off against the deposit",
             "non-refundable",
+            "കുറയ്ക്ക", "തിരികെ നൽകില്ല",
         ],
         "support": ["deposit", "advance", "amount", "rent", "security"],
         "negative": ["shall not be deducted", "fully refundable", "refunded in full"],
@@ -130,6 +137,7 @@ RULES: List[Dict] = [
             "notice period", "months notice", "month notice", "months prior notice",
             "days notice", "days prior notice", "written notice of", "prior written notice",
             "advance notice of", "serve a notice",
+            "നോട്ടീസ്", "മുൻകൂർ അറിയിപ്പ്",
         ],
         "support": ["day", "month", "year", "week", "terminate", "vacate", "quit"],
         "negative": ["no notice is required", "without notice period"],
@@ -145,6 +153,7 @@ RULES: List[Dict] = [
             "rate of interest", "interest at the rate", "per annum", "compounded",
             "floating rate", "reset the interest", "revise the interest",
             "interest shall be charged",
+            "പലിശ നിരക്ക്", "പലിശ",
         ],
         "support": [],
         "negative": ["interest free", "no interest shall be charged"],
@@ -160,6 +169,7 @@ RULES: List[Dict] = [
             "at his own cost", "at her own cost", "at their own cost", "at own expense",
             "shall indemnify", "shall maintain", "shall not sublet", "shall not assign",
             "shall keep the", "obliged to",
+            "ബാധ്യത", "ഉത്തരവാദിത്തം",
         ],
         "support": [],
         "negative": [],
@@ -174,6 +184,7 @@ RULES: List[Dict] = [
             "on or before", "no later than", "not later than", "failing which",
             "last date", "within a period of", "within", "due on", "due date",
             "expire on", "expires on",
+            "അവസാന തീയതി", "മുൻപ് നൽകണം",
         ],
         "support": [],
         "negative": [],
@@ -192,6 +203,7 @@ RULES: List[Dict] = [
             "shall be final and binding", "not be liable for any",
             "irrevocably", "unconditionally", "at any time without",
             "shall have the right to enter", "disconnect the supply",
+            "ഏകപക്ഷീയ", "അന്തിമമായിരിക്കും",
         ],
         "support": [],
         "negative": [],
@@ -230,7 +242,7 @@ def level_label(level: str) -> str:
 
 
 def _hits(haystack: str, phrases: Sequence[str]) -> List[str]:
-    return [p for p in phrases if p in haystack]
+    return [p for p in phrases if normalise_phrase(p) in haystack]
 
 
 def _confidence(rule: Dict, matched: List[str], support: List[str], text: str) -> str:
@@ -360,24 +372,27 @@ def rule_explanation(clause: Clause, language: str = "en") -> Dict[str, str]:
     It restates the rule, never the clause's meaning: no model, no claim about
     what the sentence means beyond the matched wording.
     """
+    # The reason the rewrite is missing (model down, bad JSON, wrong language)
+    # is reported separately in the analysis warnings, so this text states only
+    # what is certain: the rule engine's own finding.
     if language == "ml":
         return {
             "what_it_says": "രേഖയിലെ ഈ വാക്യം മുകളിൽ അതേപടി നൽകിയിരിക്കുന്നു.",
             "plain_meaning": (
-                "പ്രാദേശിക AI മോഡൽ ലഭ്യമല്ല, അതിനാൽ ലളിതമായ വിശദീകരണം ഇപ്പോൾ നൽകാനാകില്ല. "
-                "ചട്ട പരിശോധനയിൽ ഈ വാക്യം \"%s\" എന്ന വിഭാഗത്തിൽ വരുന്നു." % clause.label
+                "ഈ വാക്യത്തിന് AI മോഡലിൽ നിന്ന് ലളിതമായ വിശദീകരണം ലഭ്യമായില്ല. "
+                "ചട്ട പരിശോധനയിൽ ഇത് \"%s\" എന്ന വിഭാഗത്തിൽ വരുന്നു." % clause.label
             ),
             "why_pay_attention": clause.reason,
             "next_step": clause.suggested_action,
-            "uncertain": "Ollama ആരംഭിച്ച ശേഷം വീണ്ടും വിശദീകരണം ചോദിക്കുക.",
+            "uncertain": "കാരണം മുകളിലെ കുറിപ്പുകളിൽ കാണുക. ഇംഗ്ലീഷിലേക്ക് മാറ്റി വീണ്ടും ശ്രമിക്കാം.",
         }
     return {
         "what_it_says": "The clause is shown above exactly as it appears in the document.",
         "plain_meaning": (
-            "The local AI model is not available, so no plain-language rewrite was "
-            'generated. The rule engine placed this sentence under "%s".' % clause.label
+            "No plain-language rewrite was produced for this clause by the AI model. "
+            'The rule engine placed this sentence under "%s".' % clause.label
         ),
         "why_pay_attention": clause.reason,
         "next_step": clause.suggested_action,
-        "uncertain": "Start Ollama and ask for explanations again for a plain-language version.",
+        "uncertain": "See the notes at the top of this analysis for why the rewrite is missing.",
     }

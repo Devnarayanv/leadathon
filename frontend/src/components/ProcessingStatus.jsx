@@ -26,9 +26,9 @@ export default function ProcessingStatus({ aiEnabled }) {
   );
 
   return (
-    <div className="card p-5 sm:p-6">
+    <div className="card p-5 ">
       <div className="flex items-center gap-2.5">
-        <Loader2 size={18} className="animate-spin text-brand" />
+        <Loader2 size={16} className="animate-spin text-ink-soft" />
         <h2 className="text-sm font-semibold">Working on your document</h2>
         <span className="ml-auto text-xs text-ink-soft">{elapsed.toFixed(0)}s</span>
       </div>
@@ -44,8 +44,8 @@ export default function ProcessingStatus({ aiEnabled }) {
                   done
                     ? "bg-good-soft text-good"
                     : active
-                      ? "bg-brand-soft text-brand"
-                      : "bg-canvas text-ink-soft"
+                      ? "bg-ink text-white"
+                      : "bg-canvas text-ink-faint"
                 }`}
               >
                 {done ? <Check size={12} /> : index + 1}

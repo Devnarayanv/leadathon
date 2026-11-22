@@ -12,7 +12,24 @@ import config
 import ollama_service
 import prompts
 from schemas import Clause, ClauseExplanation, Fact
-from utils import truncate
+from utils import looks_malayalam, truncate
+
+_MALAYALAM_ALTERNATIVES = ("gemma2:9b", "qwen2.5:7b", "aya:8b")
+
+
+def malayalam_failed_message(model: str = "") -> str:
+    """Explain the rejection, suggesting models other than the one in use."""
+    model = model or config.model_for("ml")
+    current = model.strip().lower()
+    others = [m for m in _MALAYALAM_ALTERNATIVES if m.lower() != current]
+    return (
+        'The model "%s" did not reply in Malayalam, so its answer was discarded '
+        "rather than shown to you as a translation. Malayalam is hard for small "
+        "local models. English explanations still work, and the facts, clauses "
+        "and deadlines below come from the rule engine, not the model. To try "
+        "another model, set OLLAMA_MODEL in .env (for example %s) and restart "
+        "the backend." % (model, " or ".join(others[:2]))
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +70,18 @@ def _coerce(entry: Dict, language: str) -> Optional[ClauseExplanation]:
     # An entry with no usable content is worse than the rule template.
     if not (explanation.plain_meaning or explanation.what_it_says):
         return None
+    # Asked for Malayalam, got something else: reject it rather than present
+    # another language as if it were the translation the user asked for.
+    if language == "ml":
+        body = " ".join(
+            [
+                explanation.plain_meaning,
+                explanation.what_it_says,
+                explanation.why_pay_attention,
+            ]
+        )
+        if not looks_malayalam(body):
+            return None
     return explanation
 
 
@@ -67,11 +96,14 @@ def explain_clauses(
     if not clauses:
         return clauses, warnings
 
-    chosen = _pick(clauses, config.MAX_EXPLAINED_CLAUSES)
+    budget = config.max_explained_for(language)
+    chosen = _pick(clauses, budget)
     skipped = len(clauses) - len(chosen)
 
     llm_ok = False
+    model = config.model_for(language)
     explanations: Dict[int, ClauseExplanation] = {}
+    entries: List[Dict] = []
     try:
         payload = ollama_service.generate_json(
             prompts.clause_batch_prompt(
@@ -81,13 +113,38 @@ def explain_clauses(
                 _facts_line(facts),
             ),
             system=prompts.SYSTEM,
-            num_predict=260 * max(1, len(chosen)),
+            num_predict=config.clause_token_budget_for(language) * max(1, len(chosen)),
+            model=model,
+            retries=0,
+            timeout=config.timeout_for(language),
         )
-        entries = payload.get("explanations")
-        if isinstance(payload, dict) and not isinstance(entries, list):
+        candidate = payload.get("explanations")
+        if isinstance(payload, dict) and not isinstance(candidate, list):
             # Some small models return a bare object for a single clause.
-            entries = [payload] if "plain_meaning" in payload else []
-        for position, entry in enumerate(entries or []):
+            candidate = [payload] if "plain_meaning" in payload else []
+        entries = candidate or []
+    except ollama_service.OllamaBadJson as exc:
+        # Usually the reply was cut off by the token limit. Regenerating
+        # truncates at the same place, so keep the complete entries instead.
+        entries = [e for e in ollama_service.salvage_json_objects(exc.raw) if "id" in e]
+        if entries:
+            warnings.append(
+                "The model's reply was cut short, so %d of %d clauses were "
+                "recovered from it. Raise CLAUSE_TOKEN_BUDGET or lower "
+                "MAX_EXPLAINED_CLAUSES for complete answers."
+                % (len(entries), len(chosen))
+            )
+        else:
+            warnings.append(str(exc))
+    except ollama_service.OllamaUnavailable as exc:
+        warnings.append(str(exc))
+    except ollama_service.OllamaError as exc:
+        warnings.append(str(exc))
+
+    # Parsing runs for a clean reply and a salvaged one alike.
+    if entries:
+        wrong_language = 0
+        for position, entry in enumerate(entries):
             if not isinstance(entry, dict):
                 continue
             raw_id = entry.get("id")
@@ -98,17 +155,17 @@ def explain_clauses(
             explanation = _coerce(entry, language)
             if explanation:
                 explanations[clause_id] = explanation
+            elif language == "ml":
+                wrong_language += 1
         llm_ok = bool(explanations)
-        if not llm_ok:
+        if not llm_ok and wrong_language:
+            warnings.append(malayalam_failed_message(model))
+        elif not llm_ok:
             warnings.append(
                 "The local model replied but no usable explanation could be read from "
                 "it. Rule-based notes are shown instead. A larger OLLAMA_MODEL usually "
                 "fixes this."
             )
-    except ollama_service.OllamaUnavailable as exc:
-        warnings.append(str(exc))
-    except ollama_service.OllamaError as exc:
-        warnings.append(str(exc))
 
     missing = 0
     chosen_ids = {c.id for c in chosen}
@@ -133,8 +190,8 @@ def explain_clauses(
     if skipped > 0 and llm_ok:
         warnings.append(
             "AI explanations were generated for the %d highest-priority clauses "
-            "(MAX_EXPLAINED_CLAUSES=%d). The remaining %d show rule-based notes."
-            % (len(chosen), config.MAX_EXPLAINED_CLAUSES, skipped)
+            "(limit %d for this language). The remaining %d show rule-based notes."
+            % (len(chosen), budget, skipped)
         )
     return clauses, warnings
 
@@ -182,8 +239,12 @@ def build_summary(
             prompts.summary_prompt(doc_type_label, language, highlights),
             system=prompts.SYSTEM,
             num_predict=300,
+            model=config.model_for(language),
+            timeout=config.timeout_for(language),
         )
         summary = str(payload.get("summary", "") or "").strip()
+        if summary and language == "ml" and not looks_malayalam(summary):
+            return fallback, "rules", [malayalam_failed_message()]
         if summary:
             return summary, "llm", []
         return fallback, "rules", ["The model returned an empty summary."]

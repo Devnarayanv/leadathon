@@ -41,7 +41,14 @@ def _uid(deadline: CalendarDeadline, filename: str) -> str:
     return "%s@plainspeak.local" % digest
 
 
-def build_ics(filename: str, deadlines: List[CalendarDeadline]) -> str:
+def build_ics(
+    filename: str, deadlines: List[CalendarDeadline], reminder_days: int = 3
+) -> str:
+    """An all-day event per deadline, each with a reminder alarm.
+
+    reminder_days is how many days before the date the alarm fires; 0 puts
+    it on the morning of the day itself.
+    """
     stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     lines = [
         "BEGIN:VCALENDAR",
@@ -71,9 +78,15 @@ def build_ics(filename: str, deadlines: List[CalendarDeadline]) -> str:
             _fold("DESCRIPTION:" + _escape("\n".join(description_parts))),
             "TRANSP:TRANSPARENT",
             "BEGIN:VALARM",
-            "TRIGGER:-P3D",
+            "TRIGGER:-PT0M" if reminder_days == 0 else "TRIGGER:-P%dD" % reminder_days,
             "ACTION:DISPLAY",
-            _fold("DESCRIPTION:" + _escape(deadline.description + " in 3 days")),
+            _fold(
+                "DESCRIPTION:"
+                + _escape(
+                    deadline.description
+                    + (" today" if reminder_days == 0 else " in %d days" % reminder_days)
+                )
+            ),
             "END:VALARM",
             "END:VEVENT",
         ]

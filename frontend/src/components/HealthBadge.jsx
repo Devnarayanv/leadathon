@@ -65,6 +65,14 @@ export default function HealthBadge({ health, onRefresh }) {
               }
             />
             <Row
+              name="Offline voice"
+              value={
+                health?.tts?.available
+                  ? `available (${(health.tts.languages || []).join(", ") || "en"})`
+                  : "not installed"
+              }
+            />
+            <Row
               name="Malayalam OCR"
               value={health?.ocr?.malayalam ? "installed" : "not installed"}
             />

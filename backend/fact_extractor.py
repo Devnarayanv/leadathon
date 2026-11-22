@@ -9,7 +9,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import dates
 from schemas import Fact, Segment
-from utils import normalise, truncate
+from utils import fold_malayalam, normalise, normalise_phrase, truncate
 
 # key, label, trigger phrases, extractor, anti-phrases
 Spec = Dict
@@ -67,6 +67,21 @@ def _authority(segment_text: str, offset: int = 0) -> Optional[str]:
 
 
 def _amount_percent_or_sentence(segment_text: str, offset: int = 0) -> Optional[str]:
+    """A fee can be "Rs. 500" or "2% of the amount": take whichever the
+    document puts nearer the label, not whichever type we happen to try first."""
+    window = segment_text[offset : offset + dates.AFTER_WINDOW] if offset else segment_text
+    amount = dates.CURRENCY_AMOUNT.search(window) or dates.MALAYALAM_AMOUNT.search(window)
+    percent = dates.PERCENT.search(window)
+    if amount and percent:
+        return (
+            dates.format_amount(amount)
+            if amount.start() < percent.start()
+            else percent.group(0).strip()
+        )
+    if amount:
+        return dates.format_amount(amount)
+    if percent:
+        return percent.group(0).strip()
     return (
         dates.find_amount_after(segment_text, offset, require_currency=True)
         or dates.find_percent_after(segment_text, offset)
@@ -78,7 +93,8 @@ COMMON_SPECS: List[Spec] = [
     {
         "key": "penalty",
         "label": "Penalty / late fee",
-        "triggers": ["penalty", "penal interest", "late fee", "late payment charge", "fine of"],
+        "triggers": ["penalty", "penal interest", "late fee", "late payment charge",
+                     "fine of", "പിഴ"],
         "extract": _amount_percent_or_sentence,
         "confidence": "medium",
     },
@@ -86,7 +102,8 @@ COMMON_SPECS: List[Spec] = [
         "key": "notice_period",
         "label": "Notice period",
         "triggers": ["notice period", "months notice", "month notice", "days notice",
-                     "prior notice", "advance notice", "written notice of"],
+                     "prior notice", "advance notice", "written notice of",
+                     "നോട്ടീസ് കാലാവധി", "നോട്ടീസ്"],
         "extract": _duration,
         "confidence": "high",
     },
@@ -98,7 +115,8 @@ SPECS_BY_TYPE: Dict[str, List[Spec]] = {
             "key": "rent",
             "label": "Monthly rent",
             "triggers": ["monthly rent", "rent of rs", "rent shall be", "licence fee",
-                         "license fee", "rent per month", "payable as rent"],
+                         "license fee", "rent per month", "payable as rent",
+                         "പ്രതിമാസ വാടക", "വാടക"],
             "extract": _amount_near,
             "confidence": "high",
         },
@@ -106,7 +124,8 @@ SPECS_BY_TYPE: Dict[str, List[Spec]] = {
             "key": "deposit",
             "label": "Security deposit",
             "triggers": ["security deposit", "caution deposit", "advance deposit",
-                         "interest free deposit", "refundable deposit"],
+                         "interest free deposit", "refundable deposit",
+                         "ഡിപ്പോസിറ്റ്", "മുൻകൂർ തുക"],
             "extract": _amount_near,
             "confidence": "high",
         },
@@ -130,14 +149,16 @@ SPECS_BY_TYPE: Dict[str, List[Spec]] = {
             "key": "duration",
             "label": "Agreement duration",
             "triggers": ["period of", "term of", "duration of", "for a term",
-                         "tenure of", "months commencing"],
+                         "tenure of", "months commencing",
+                         "കരാർ കാലാവധി", "കാലാവധി"],
             "extract": _duration,
             "confidence": "medium",
         },
         {
             "key": "lock_in",
             "label": "Lock-in period",
-            "triggers": ["lock-in", "lock in period", "minimum period of occupation"],
+            "triggers": ["lock-in", "lock in period", "minimum period of occupation",
+                         "ലോക്ക് ഇൻ"],
             "extract": _duration,
             "confidence": "high",
         },
@@ -163,7 +184,8 @@ SPECS_BY_TYPE: Dict[str, List[Spec]] = {
             "key": "loan_amount",
             "label": "Loan amount",
             "triggers": ["loan amount", "principal amount", "sanctioned amount",
-                         "facility amount", "amount of loan", "sanction of rs"],
+                         "facility amount", "amount of loan", "sanction of rs",
+                         "വായ്പ തുക", "വായ്പ"],
             "extract": _amount_near,
             "confidence": "high",
         },
@@ -171,7 +193,7 @@ SPECS_BY_TYPE: Dict[str, List[Spec]] = {
             "key": "interest_rate",
             "label": "Interest rate",
             "triggers": ["rate of interest", "interest rate", "interest at",
-                         "per annum", "p.a."],
+                         "per annum", "p.a.", "പലിശ നിരക്ക്", "പലിശ"],
             "extract": _percent,
             "confidence": "high",
         },
@@ -220,7 +242,8 @@ SPECS_BY_TYPE: Dict[str, List[Spec]] = {
             "key": "total_amount",
             "label": "Total amount",
             "triggers": ["total amount", "grand total", "net payable", "total payable",
-                         "amount due", "bill amount", "total bill"],
+                         "amount due", "bill amount", "total bill",
+                         "ആകെ തുക", "ആകെ"],
             "extract": _amount_near,
             "confidence": "high",
         },
@@ -339,7 +362,7 @@ SPECS_BY_TYPE: Dict[str, List[Spec]] = {
 
 def _trigger_hits(haystack: str, triggers: Sequence[str]) -> List[Tuple[str, int]]:
     """Every trigger that appears, with its position, in document order."""
-    hits = [(t, haystack.find(t)) for t in triggers]
+    hits = [(t, haystack.find(normalise_phrase(t))) for t in triggers]
     found = [(t, i) for t, i in hits if i != -1]
     found.sort(key=lambda row: row[1])
     return found
@@ -355,7 +378,12 @@ def extract_facts(segments: List[Segment], doc_type: str) -> List[Fact]:
         # the normalised string line up closely enough with the original for
         # "look after the trigger" to work on either.
         haystack = normalise(segment.text)
-        lowered = segment.text.lower()
+        # Chillu folding changes string length, so an offset taken from folded
+        # text would mis-slice the raw text. Search AND slice the same folded
+        # copy; values are digits or dates, which folding leaves untouched, and
+        # source_text below still quotes the document verbatim.
+        search_text = fold_malayalam(segment.text)
+        lowered = search_text.lower()
         for spec in specs:
             key = spec["key"]
             if key in found:
@@ -371,9 +399,9 @@ def extract_facts(segments: List[Segment], doc_type: str) -> List[Fact]:
             for candidate, _position in hits:
                 # Use the position in the ORIGINAL text; whitespace collapsing
                 # can shift the normalised index.
-                start = lowered.find(candidate)
+                start = lowered.find(normalise_phrase(candidate))
                 start = 0 if start == -1 else start + len(candidate)
-                candidate_value = extractor(segment.text, start)
+                candidate_value = extractor(search_text, start)
                 if candidate_value:
                     trigger, offset, value = candidate, start, candidate_value
                     break
@@ -384,7 +412,7 @@ def extract_facts(segments: List[Segment], doc_type: str) -> List[Fact]:
             confidence = spec.get("confidence", "medium")
             # A numeric date read day-first could also be month-first.
             if extractor is _date:
-                iso, _raw, date_conf = dates.parse_date_after(segment.text, offset)
+                iso, _raw, date_conf = dates.parse_date_after(search_text, offset)
                 if iso and date_conf != "high":
                     uncertain = True
                     confidence = "low" if date_conf == "low" else "medium"

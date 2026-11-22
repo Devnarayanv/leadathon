@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 import dates
 from schemas import Deadline, Segment
-from utils import normalise, truncate
+from utils import fold_malayalam, normalise, normalise_phrase, truncate
 
 # phrase -> what the deadline is about
 DEADLINE_CUES: Dict[str, str] = {
@@ -43,6 +43,11 @@ DEADLINE_CUES: Dict[str, str] = {
     "appear before": "Appearance deadline",
     "show cause": "Reply deadline",
     "within": "Time limit from the stated event",
+    # Malayalam
+    "മുൻപ് നൽകണം": "Payment or action due before this date",
+    "അവസാന തീയതി": "Last date for the stated action",
+    "തീയതിക്ക് മുൻപ്": "Action required before this date",
+    "കാലാവധി": "Validity or period ends",
 }
 
 # Dates that describe the past, not a deadline.
@@ -77,6 +82,9 @@ STRONG_CUES = (
     "submit",
     "appear before",
     "show cause",
+    "മുൻപ് നൽകണം",
+    "അവസാന തീയതി",
+    "തീയതിക്ക് മുൻപ്",
 )
 
 # Cues too weak to carry a deadline on their own.
@@ -84,7 +92,7 @@ WEAK_CUES = ("renew", "within", "commence", "vacate", "submit")
 
 
 def _cue_hits(haystack: str) -> List[Tuple[str, int]]:
-    hits = [(cue, haystack.find(cue)) for cue in DEADLINE_CUES]
+    hits = [(cue, haystack.find(normalise_phrase(cue))) for cue in DEADLINE_CUES]
     found = [(cue, index) for cue, index in hits if index != -1]
     found.sort(key=lambda row: row[1])
     return found
@@ -124,7 +132,10 @@ def extract_deadlines(segments: List[Segment], max_items: int = 15) -> List[Dead
         if len(text) < 20:
             continue
         haystack = normalise(text)
-        lowered = text.lower()
+        # Same reason as in fact_extractor: fold once, then search and slice
+        # that one copy so offsets stay valid.
+        search_text = fold_malayalam(text)
+        lowered = search_text.lower()
         cue_hits = _cue_hits(haystack)
         if not cue_hits:
             continue
@@ -136,10 +147,10 @@ def extract_deadlines(segments: List[Segment], max_items: int = 15) -> List[Dead
             continue
 
         for cue, _position in cue_hits:
-            start = lowered.find(cue)
+            start = lowered.find(normalise_phrase(cue))
             start = 0 if start == -1 else start + len(cue)
-            iso, raw_date, date_confidence = dates.parse_date_after(text, start)
-            relative = _WITHIN.search(text[start:]) or _WITHIN.search(text)
+            iso, raw_date, date_confidence = dates.parse_date_after(search_text, start)
+            relative = _WITHIN.search(search_text[start:]) or _WITHIN.search(search_text)
             if not iso and not relative:
                 continue
 

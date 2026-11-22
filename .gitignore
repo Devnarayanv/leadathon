@@ -17,3 +17,7 @@ backend/.env
 .idea/
 .DS_Store
 Thumbs.db
+
+# Tesseract language data downloaded at setup (20 MB of binaries).
+# Recreate with the commands in the README's OCR section.
+tessdata/

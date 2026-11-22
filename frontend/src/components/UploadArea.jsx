@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { AlertCircle, FileUp, Loader2, Sparkles, Trash2, Upload } from "lucide-react";
+import { AlertCircle, ArrowRight, Loader2, Upload, X } from "lucide-react";
 
 const ACCEPTED = [".pdf", ".jpg", ".jpeg", ".png"];
 const ACCEPT_ATTR = "application/pdf,image/jpeg,image/png";
@@ -30,9 +30,7 @@ export default function UploadArea({
   const validate = useCallback(
     (candidate) => {
       if (!ACCEPTED.includes(extensionOf(candidate.name))) {
-        return `Only PDF, JPG, JPEG and PNG files are accepted. You picked ${
-          extensionOf(candidate.name) || "a file with no extension"
-        }.`;
+        return `Only PDF, JPG and PNG files are accepted.`;
       }
       if (candidate.size === 0) return "That file is empty.";
       if (candidate.size > maxUploadMb * 1024 * 1024) {
@@ -54,13 +52,6 @@ export default function UploadArea({
     [validate, onClearError],
   );
 
-  const onDrop = (event) => {
-    event.preventDefault();
-    setDragging(false);
-    if (busy) return;
-    accept(event.dataTransfer.files?.[0]);
-  };
-
   const clear = () => {
     setFile(null);
     setLocalError("");
@@ -71,34 +62,31 @@ export default function UploadArea({
   const shownError = localError || error;
 
   return (
-    <div className="card p-5 sm:p-6">
+    <div>
       <div
         onDragOver={(event) => {
           event.preventDefault();
           if (!busy) setDragging(true);
         }}
         onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        className={`rounded-xl border-2 border-dashed px-5 py-10 text-center transition-colors ${
-          dragging ? "border-brand bg-brand-soft" : "border-line bg-canvas"
-        } ${busy ? "opacity-60" : ""}`}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragging(false);
+          if (!busy) accept(event.dataTransfer.files?.[0]);
+        }}
+        onClick={() => !file && inputRef.current?.click()}
+        className={`rounded-[var(--radius-card)] border border-dashed px-5 py-12 text-center transition-colors ${
+          dragging
+            ? "border-ink bg-canvas"
+            : "border-line-strong bg-surface hover:border-ink-soft"
+        } ${file ? "" : "cursor-pointer"} ${busy ? "opacity-60" : ""}`}
       >
-        <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-surface text-brand ring-1 ring-line">
-          <FileUp size={22} />
-        </span>
-        <p className="text-sm font-medium">Drag a document here</p>
-        <p className="mt-1 text-xs text-ink-soft">
-          PDF, JPG or PNG &middot; up to {maxUploadMb} MB &middot; processed on this machine
+        <Upload size={20} className="mx-auto text-ink-faint" />
+        <p className="mt-3 text-sm font-medium">Drop a document, or click to choose</p>
+        <p className="mt-1 text-xs text-ink-faint">
+          PDF, JPG or PNG &middot; up to {maxUploadMb} MB &middot; processed on this
+          machine
         </p>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={busy}
-          className="btn-secondary mt-4"
-        >
-          <Upload size={16} />
-          Choose a file
-        </button>
         <input
           ref={inputRef}
           type="file"
@@ -109,31 +97,26 @@ export default function UploadArea({
       </div>
 
       {file && (
-        <div className="mt-4 flex items-center gap-3 rounded-lg border border-line bg-surface px-3.5 py-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-ink">
-            <FileUp size={16} />
-          </span>
+        <div className="mt-3 flex items-center gap-3 rounded-lg border border-line px-3.5 py-2.5">
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{file.name}</p>
-            <p className="text-xs text-ink-soft">
-              {formatSize(file.size)} &middot; {extensionOf(file.name).replace(".", "").toUpperCase()}
-            </p>
+            <p className="text-xs text-ink-faint">{formatSize(file.size)}</p>
           </div>
           <button
             type="button"
             onClick={clear}
             disabled={busy}
-            className="btn-ghost !px-2"
+            className="btn-ghost !px-1.5 !py-1.5"
             title="Remove file"
           >
-            <Trash2 size={16} />
+            <X size={15} />
           </button>
         </div>
       )}
 
       {shownError && (
-        <p className="mt-3 flex items-start gap-2 rounded-lg bg-crit-soft px-3.5 py-3 text-sm text-crit">
-          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+        <p className="mt-3 flex items-start gap-2 text-sm text-crit">
+          <AlertCircle size={15} className="mt-0.5 shrink-0" />
           <span>{shownError}</span>
         </p>
       )}
@@ -142,10 +125,11 @@ export default function UploadArea({
         type="button"
         onClick={() => file && onAnalyse(file)}
         disabled={!file || busy}
-        className="btn-primary mt-4 w-full"
+        className="btn-primary mt-3 w-full"
       >
-        {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-        {busy ? "Analysing..." : "Analyse this document"}
+        {busy ? <Loader2 size={15} className="animate-spin" /> : null}
+        {busy ? "Analysing..." : "Analyse document"}
+        {!busy && <ArrowRight size={15} />}
       </button>
     </div>
   );

@@ -5,6 +5,7 @@ disk, so there is no stored copy to delete afterwards. Document text is not
 logged (see LOG_DOCUMENT_TEXT in config).
 """
 import logging
+import threading
 from typing import List
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -21,6 +22,7 @@ import ollama_service
 import pdf_reader
 import pipeline
 import question_answering
+import tts_service
 from schemas import (
     AnalysisResult,
     AskRequest,
@@ -28,6 +30,7 @@ from schemas import (
     CalendarRequest,
     ExplainRequest,
     ExplainResponse,
+    TtsRequest,
 )
 
 logging.basicConfig(
@@ -61,20 +64,45 @@ async def unreadable_handler(_request: Request, exc: pdf_reader.UnreadableDocume
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
+@app.on_event("startup")
+def preload_model() -> None:
+    """Load the Ollama model in the background as the server starts.
+
+    The server is usable immediately; this only means the first upload does not
+    pay the cold model load. It never fails startup if Ollama is absent.
+    """
+    thread = threading.Thread(target=ollama_service.warm_up, daemon=True)
+    thread.start()
+
+
 @app.get("/api/health")
 def health() -> dict:
     status = ollama_service.check_status(force=True)
+    malayalam_model = config.model_for("ml")
+    malayalam_status = (
+        status
+        if malayalam_model == config.OLLAMA_MODEL
+        else ollama_service.check_status(force=True, model=malayalam_model)
+    )
     ocr_ok, ocr_message = ocr_reader.ocr_status()
+    tts_ok, tts_message, tts_languages = tts_service.tts_status()
     return {
         "status": "ok",
         "backend": "running",
         "ollama": status.model_dump(),
+        "ollama_malayalam": malayalam_status.model_dump(),
         "ocr": {
             "available": ocr_ok,
             "message": ocr_message,
             "languages": list(ocr_reader.available_languages()),
             "active_languages": ocr_reader.resolve_langs() if ocr_ok else "",
             "malayalam": "mal" in ocr_reader.available_languages(),
+        },
+        "tts": {
+            "available": tts_ok,
+            "message": tts_message,
+            "languages": tts_languages,
+            "malayalam": tts_service.language_supported("ml"),
         },
         "limits": {
             "max_upload_mb": config.MAX_UPLOAD_MB,
@@ -112,7 +140,9 @@ async def analyze(
 def explain(request: ExplainRequest) -> ExplainResponse:
     """Re-explain known clauses: used for language switching and for retrying
     after Ollama has been started. Avoids re-uploading the document."""
-    status = ollama_service.check_status(force=True)
+    status = ollama_service.check_status(
+        force=True, model=config.model_for(request.language)
+    )
     doc_label = document_classifier.RULES.get(request.doc_type, {}).get(
         "label", "unknown / uncertain"
     )
@@ -164,7 +194,9 @@ def ask(request: AskRequest) -> AskResponse:
 @app.post("/api/calendar")
 def calendar(request: CalendarRequest) -> Response:
     try:
-        ics = calendar_export.build_ics(request.filename, request.deadlines)
+        ics = calendar_export.build_ics(
+            request.filename, request.deadlines, request.reminder_days
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="Invalid date: %s" % exc) from exc
     name = calendar_export.safe_basename(request.filename.rsplit(".", 1)[0])
@@ -174,6 +206,26 @@ def calendar(request: CalendarRequest) -> Response:
         headers={
             "Content-Disposition": 'attachment; filename="plainspeak-%s.ics"' % name
         },
+    )
+
+
+@app.post("/api/tts")
+def tts(request: TtsRequest) -> Response:
+    """Speak text locally with eSpeak NG.
+
+    Used only when the browser has no voice for the chosen language, which
+    on Windows is the normal case for Malayalam. Nothing leaves the machine.
+    """
+    try:
+        audio = tts_service.synthesize(request.text, request.language)
+    except tts_service.TtsUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=audio,
+        media_type="audio/wav",
+        headers={"Cache-Control": "no-store"},
     )
 
 

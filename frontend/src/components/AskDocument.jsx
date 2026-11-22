@@ -67,9 +67,8 @@ export default function AskDocument({ result, language, speech }) {
   };
 
   return (
-    <section id="ask" className="card p-5 sm:p-6">
+    <section id="ask" className="card scroll-mt-28 p-5">
       <div className="flex items-center gap-2">
-        <MessageCircleQuestion size={17} className="text-brand" />
         <h2 className="text-sm font-semibold">{t(language, "askTitle")}</h2>
       </div>
       <p className="mt-1.5 text-xs text-ink-soft">
@@ -104,7 +103,7 @@ export default function AskDocument({ result, language, speech }) {
             type="button"
             onClick={() => submit(item)}
             disabled={busy}
-            className="chip bg-canvas text-ink-soft hover:bg-brand-soft hover:text-brand-ink"
+            className="chip bg-canvas text-ink-soft hover:text-ink"
           >
             {item}
           </button>
@@ -112,11 +111,11 @@ export default function AskDocument({ result, language, speech }) {
       </div>
 
       {error && (
-        <p className="mt-4 rounded-lg bg-crit-soft px-3.5 py-3 text-sm text-crit">{error}</p>
+        <p className="mt-4 text-sm text-crit">{error}</p>
       )}
 
       {answer && (
-        <div className="mt-4 rounded-lg border border-line bg-canvas p-4">
+        <div className="mt-4 rounded-lg border border-line p-4">
           <div className="flex flex-wrap items-center gap-2">
             {answer.grounded ? (
               <span className="chip bg-good-soft text-good">

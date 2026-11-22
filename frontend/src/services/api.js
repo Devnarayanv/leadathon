@@ -62,11 +62,16 @@ export function explainClauses({ clauses, docType, language, signal }) {
   );
 }
 
-export async function downloadCalendar({ filename, deadlines }) {
+// The <audio> element fetches this directly, so the caller needs the URL.
+export function speakUrl() {
+  return `${BASE}/api/tts`;
+}
+
+export async function downloadCalendar({ filename, deadlines, reminderDays = 3 }) {
   const response = await fetch(`${BASE}/api/calendar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ filename, deadlines }),
+    body: JSON.stringify({ filename, deadlines, reminder_days: reminderDays }),
   });
   if (!response.ok) throw await parseError(response);
   const blob = await response.blob();

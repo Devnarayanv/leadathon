@@ -14,7 +14,7 @@ import config
 import ollama_service
 import prompts
 from schemas import AskResponse, Evidence, Segment
-from utils import truncate
+from utils import looks_malayalam, truncate
 
 logger = logging.getLogger(__name__)
 
@@ -140,11 +140,20 @@ def answer_question(
             prompts.qa_prompt(question, doc_type_label, excerpts, language),
             system=prompts.SYSTEM,
             num_predict=400,
+            model=config.model_for(language),
+            timeout=config.timeout_for(language),
         )
         answer = str(payload.get("answer", "") or "").strip()
         found = payload.get("found")
         if not answer:
             raise ollama_service.OllamaError("The model returned an empty answer.")
+        # Asked for Malayalam, answered in another language: say so rather than
+        # pass it off as the Malayalam answer the user asked for.
+        if language == "ml" and not looks_malayalam(answer):
+            raise ollama_service.OllamaError(
+                'The model "%s" answered in another language instead of Malayalam.'
+                % config.model_for(language)
+            )
         grounded = bool(found) if isinstance(found, bool) else True
         return AskResponse(
             answer=answer,

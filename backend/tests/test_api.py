@@ -21,7 +21,7 @@ def test_analyze_returns_a_full_structured_result(client, rental_pdf_bytes):
     response = client.post(
         "/api/analyze",
         files={"file": ("demo_rental_agreement.pdf", rental_pdf_bytes, "application/pdf")},
-        data={"language": "en"},
+        data={"language": "en", "use_ai": "false"},
     )
     assert response.status_code == 200
     body = response.json()
@@ -87,6 +87,8 @@ def test_analyze_handles_a_corrupt_pdf(client):
 def test_image_upload_without_ocr_reports_it_rather_than_failing(client, monkeypatch):
     import ocr_reader
 
+    # pdf_reader calls ocr_reader.ocr_status() through the module, so patching
+    # the module attribute covers both call sites.
     monkeypatch.setattr(
         ocr_reader, "ocr_status", lambda: (False, "Tesseract OCR was not found.")
     )
@@ -125,6 +127,7 @@ def test_ask_answers_from_supplied_segments(client, rental_pdf_bytes):
     analysis = client.post(
         "/api/analyze",
         files={"file": ("rent.pdf", rental_pdf_bytes, "application/pdf")},
+        data={"use_ai": "false"},
     ).json()
     response = client.post(
         "/api/ask",
@@ -142,10 +145,14 @@ def test_ask_answers_from_supplied_segments(client, rental_pdf_bytes):
     assert any("notice" in item["text"].lower() for item in body["evidence"])
 
 
-def test_explain_re_explains_without_a_re_upload(client, rental_pdf_bytes):
+def test_explain_re_explains_without_a_re_upload(client, rental_pdf_bytes, ollama_down):
+    # ollama_down keeps this deterministic and fast. With a real server the
+    # Malayalam path would load the large OLLAMA_MODEL_ML model, turning a unit
+    # test into a multi-minute generation.
     analysis = client.post(
         "/api/analyze",
         files={"file": ("rent.pdf", rental_pdf_bytes, "application/pdf")},
+        data={"use_ai": "false"},
     ).json()
     response = client.post(
         "/api/explain",
@@ -231,3 +238,127 @@ def test_rules_endpoint_lists_what_the_engine_checks(client):
     for category in body["clause_categories"]:
         assert category["phrase_count"] > 0
         assert category["suggested_action"]
+
+
+# ---------------------------------------------------------------- reminders
+
+
+def test_calendar_reminder_lead_time_is_honoured(client):
+    for days, trigger in ((0, "TRIGGER:-PT0M"), (1, "TRIGGER:-P1D"), (14, "TRIGGER:-P14D")):
+        response = client.post(
+            "/api/calendar",
+            json={
+                "filename": "x.pdf",
+                "reminder_days": days,
+                "deadlines": [{"date_iso": "2026-02-28", "description": "Expiry"}],
+            },
+        )
+        assert response.status_code == 200
+        assert trigger in response.text, days
+
+
+def test_calendar_defaults_to_a_three_day_reminder(client):
+    response = client.post(
+        "/api/calendar",
+        json={
+            "filename": "x.pdf",
+            "deadlines": [{"date_iso": "2026-02-28", "description": "Expiry"}],
+        },
+    )
+    assert "TRIGGER:-P3D" in response.text
+
+
+def test_calendar_rejects_an_absurd_reminder_lead_time(client):
+    response = client.post(
+        "/api/calendar",
+        json={
+            "filename": "x.pdf",
+            "reminder_days": 900,
+            "deadlines": [{"date_iso": "2026-02-28", "description": "Expiry"}],
+        },
+    )
+    assert response.status_code == 422
+
+
+def test_every_event_still_carries_one_alarm(client):
+    response = client.post(
+        "/api/calendar",
+        json={
+            "filename": "x.pdf",
+            "reminder_days": 7,
+            "deadlines": [
+                {"date_iso": "2026-02-28", "description": "Expiry"},
+                {"date_iso": "2026-03-15", "description": "Payment due"},
+            ],
+        },
+    )
+    body = response.text
+    assert body.count("BEGIN:VEVENT") == 2
+    assert body.count("BEGIN:VALARM") == 2
+    assert body.count("TRIGGER:-P7D") == 2
+
+
+# ---------------------------------------------------------------- speech
+
+
+def test_health_reports_speech_engine_state(client):
+    body = client.get("/api/health").json()
+    assert "tts" in body
+    assert set(body["tts"]) >= {"available", "message", "languages", "malayalam"}
+    # It must never claim Malayalam speech it cannot deliver.
+    if not body["tts"]["available"]:
+        assert body["tts"]["malayalam"] is False
+        assert body["tts"]["message"]
+
+
+def test_tts_without_the_engine_returns_503_not_silence(client, monkeypatch):
+    import tts_service
+
+    monkeypatch.setattr(
+        tts_service,
+        "synthesize",
+        lambda *a, **k: (_ for _ in ()).throw(
+            tts_service.TtsUnavailable("eSpeak NG is not installed.")
+        ),
+    )
+    response = client.post("/api/tts", json={"text": "hello", "language": "en"})
+    assert response.status_code == 503
+    assert "not installed" in response.json()["detail"]
+
+
+def test_tts_rejects_empty_text(client):
+    response = client.post("/api/tts", json={"text": "", "language": "en"})
+    assert response.status_code == 422
+
+
+def test_tts_rejects_oversized_text(client):
+    response = client.post("/api/tts", json={"text": "x" * 5000, "language": "en"})
+    assert response.status_code == 422
+
+
+def test_tts_returns_wav_audio_when_the_engine_is_present(client, monkeypatch):
+    import tts_service
+
+    fake_wav = b"RIFF\x24\x00\x00\x00WAVEfmt "
+    monkeypatch.setattr(tts_service, "synthesize", lambda text, language="en": fake_wav)
+    response = client.post(
+        "/api/tts", json={"text": "വാടക", "language": "ml"}
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("audio/wav")
+    assert response.content.startswith(b"RIFF")
+
+
+def test_tts_passes_the_requested_language_through(client, monkeypatch):
+    import tts_service
+
+    seen = {}
+
+    def fake(text, language="en"):
+        seen["language"] = language
+        seen["text"] = text
+        return b"RIFF"
+
+    monkeypatch.setattr(tts_service, "synthesize", fake)
+    client.post("/api/tts", json={"text": "hello there", "language": "ml"})
+    assert seen["language"] == "ml"

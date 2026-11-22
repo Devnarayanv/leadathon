@@ -1,27 +1,31 @@
 @import "tailwindcss";
 
-/* Design tokens. One place to change the look of the whole app. */
+/* Design tokens. One place to change the look of the whole app.
+   Minimalist: one accent colour, near-flat surfaces, hairline borders,
+   and colour reserved for meaning rather than decoration. */
 @theme {
-  --color-canvas: #f6f7f9;
+  --color-canvas: #fafafa;
   --color-surface: #ffffff;
-  --color-line: #e4e7ec;
-  --color-ink: #1e293b;
-  --color-ink-soft: #64748b;
+  --color-line: #ebebed;
+  --color-line-strong: #d9d9de;
+  --color-ink: #18181b;
+  --color-ink-soft: #71717a;
+  --color-ink-faint: #a1a1aa;
 
   --color-brand: #4338ca;
-  --color-brand-soft: #eef2ff;
+  --color-brand-soft: #f1f0fe;
   --color-brand-ink: #3730a3;
 
   --color-good: #15803d;
-  --color-good-soft: #f0fdf4;
-  --color-warn: #b45309;
-  --color-warn-soft: #fffbeb;
-  --color-crit: #b91c1c;
-  --color-crit-soft: #fef2f2;
+  --color-good-soft: #f2fbf4;
+  --color-warn: #a16207;
+  --color-warn-soft: #fdfaef;
+  --color-crit: #b42318;
+  --color-crit-soft: #fdf3f2;
   --color-note: #0369a1;
-  --color-note-soft: #f0f9ff;
+  --color-note-soft: #f2f9fd;
 
-  --radius-card: 0.875rem;
+  --radius-card: 0.75rem;
 }
 
 html {
@@ -35,11 +39,13 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, "Noto Sans Malayalam", sans-serif;
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.006em;
 }
 
-/* Malayalam needs a little more line height to stay readable. */
+/* Malayalam needs more line height and no negative tracking to stay readable. */
 .lang-ml {
-  line-height: 1.75;
+  line-height: 1.8;
+  letter-spacing: 0;
 }
 
 @layer components {
@@ -52,40 +58,44 @@ body {
   .btn-primary,
   .btn-secondary,
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2
       text-sm font-medium transition-colors disabled:cursor-not-allowed
-      disabled:opacity-50;
+      disabled:opacity-40;
   }
   .btn-primary {
-    @apply bg-brand text-white hover:bg-brand-ink;
+    @apply bg-ink text-white hover:bg-ink/90;
   }
   .btn-secondary {
-    @apply border border-line bg-surface text-ink hover:bg-canvas;
+    @apply border border-line-strong bg-surface text-ink hover:bg-canvas;
   }
   .btn-ghost {
     @apply text-ink-soft hover:bg-canvas hover:text-ink;
   }
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs
       font-medium;
   }
   .label {
-    @apply text-xs font-medium tracking-wide text-ink-soft uppercase;
+    @apply text-[0.68rem] font-semibold tracking-[0.07em] text-ink-faint uppercase;
   }
   .field {
-    @apply w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm
-      text-ink outline-none placeholder:text-ink-soft
-      focus:border-brand focus:ring-2 focus:ring-brand/15;
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3.5 py-2.5
+      text-sm text-ink outline-none placeholder:text-ink-faint
+      focus:border-ink focus:ring-0;
   }
   .prose-plain {
     @apply text-sm leading-relaxed text-ink;
+  }
+  /* A left rule is quieter than a filled box for sectioning. */
+  .rule-left {
+    @apply border-l-2 pl-3;
   }
 }
 
 /* Quoted document text: always visually distinct from our own words. */
 .evidence {
-  @apply rounded-lg border border-line bg-canvas px-3.5 py-3 font-mono text-[0.8rem]
-    leading-relaxed whitespace-pre-wrap text-ink;
+  @apply rounded-md border-l-2 border-line-strong bg-canvas py-2.5 pr-3 pl-3
+    font-mono text-[0.78rem] leading-relaxed whitespace-pre-wrap text-ink-soft;
 }
 
 @media (prefers-reduced-motion: reduce) {

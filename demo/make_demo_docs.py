@@ -249,12 +249,73 @@ def write_pdf(path: Path, title: str, body: str) -> None:
     doc.close()
 
 
+# ---------------------------------------------------------------------------
+# A Malayalam notice, rendered as an image so it exercises the OCR path the way
+# a photographed document would. Needs a Malayalam-capable font; on Windows
+# Nirmala UI ships with the operating system.
+# ---------------------------------------------------------------------------
+
+MALAYALAM_LINES = [
+    "വാടക കരാർ അറിയിപ്പ് (മാതൃക രേഖ)",
+    "",
+    "പ്രതിമാസ വാടക: 18,500 രൂപ",
+    "സെക്യൂരിറ്റി ഡിപ്പോസിറ്റ്: 1,10,000 രൂപ",
+    "കരാർ കാലാവധി: 11 മാസം",
+    "നോട്ടീസ് കാലാവധി: 2 മാസം",
+    "വാടക മാസം അഞ്ചാം തീയതിക്ക് മുൻപ് നൽകണം.",
+    "വൈകിയാൽ ദിവസം 250 രൂപ പിഴ ഈടാക്കും.",
+    "",
+    "SYNTHETIC DEMO DOCUMENT - FICTIONAL DATA",
+]
+
+MALAYALAM_FONTS = [
+    r"C:\Windows\Fonts\Nirmala.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansMalayalam-Regular.ttf",
+    "/System/Library/Fonts/Supplemental/Malayalam Sangam MN.ttc",
+    "/Library/Fonts/Malayalam Sangam MN.ttc",
+]
+
+
+def find_malayalam_font():
+    for candidate in MALAYALAM_FONTS:
+        if Path(candidate).exists():
+            return candidate
+    return None
+
+
+def write_malayalam_image(path: Path) -> bool:
+    """Render a Malayalam notice as a PNG. False if no suitable font is present."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        print("Pillow is not installed; skipping the Malayalam demo image.")
+        return False
+
+    font_path = find_malayalam_font()
+    if not font_path:
+        print("No Malayalam font found; skipping the Malayalam demo image.")
+        return False
+
+    font = ImageFont.truetype(font_path, 34)
+    image = Image.new("RGB", (1120, 560), "white")
+    draw = ImageDraw.Draw(image)
+    y = 30
+    for line in MALAYALAM_LINES:
+        draw.text((40, y), line, font=font, fill=(15, 15, 25))
+        y += 52
+    image.save(path)
+    return True
+
+
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     for filename, (title, body) in DOCUMENTS.items():
         target = OUT_DIR / filename
         write_pdf(target, title, body)
         print("wrote %s" % target)
+    image_target = OUT_DIR / "demo_malayalam_notice.png"
+    if write_malayalam_image(image_target):
+        print("wrote %s" % image_target)
     return 0
 
 

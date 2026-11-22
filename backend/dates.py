@@ -56,11 +56,31 @@ CURRENCY_AMOUNT = re.compile(
     r"\s*(?:/-)?\s*(lakhs?|lacs?|crores?|thousand)?",
     re.IGNORECASE,
 )
+# Malayalam writes the unit after the number: "18,500 രൂപ". ലക്ഷം = lakh.
+MALAYALAM_AMOUNT = re.compile(
+    r"(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\s*(?:/-)?\s*"
+    r"(ലക്ഷം|കോടി)?\s*"
+    r"രൂപ"
+)
 PERCENT = re.compile(r"(\d{1,3}(?:\.\d{1,2})?)\s*(?:%|per\s*cent|percent)", re.IGNORECASE)
 DURATION = re.compile(
     r"\b(\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*"
     r"[-\s]?(day|days|week|weeks|month|months|year|years)\b",
     re.IGNORECASE,
+)
+
+# Malayalam puts the unit after the number: "11 മാസം". Written in the folded
+# (consonant + virama) form, because the text being searched is folded too.
+_ML_UNITS = {
+    "ദിവസ": 1,  # ദിവസ(ം) - day
+    "ആഴ്ച": 7,  # ആഴ്ച - week
+    "മാസ": 30,  # മാസ(ം) - month
+    "വര്ഷ": 365,  # വര്ഷ(ം) - year (folded ർ)
+}
+MALAYALAM_DURATION = re.compile(
+    # The trailing anusvara is part of the word (മാസം) but not of the stem used
+    # for the lookup, so it is matched outside the capturing group.
+    r"(\d{1,3})\s*(%s)ം?" % "|".join(sorted(_ML_UNITS, key=len, reverse=True))
 )
 
 WORD_NUMBERS = {
@@ -152,44 +172,57 @@ def has_date(text: str) -> bool:
     return parse_date(text)[0] is not None
 
 
+# A value belonging to a label sits close to it. Searching the whole block
+# instead lets "Processing charges: 0.50%" pick up an unrelated "Rs. 28,410"
+# from another line, which would report a number the document never gave for
+# that field. Both windows are deliberately tight.
+AFTER_WINDOW = 140
+BEFORE_WINDOW = 90
+
+
+def _windows(text: str, offset: int) -> Tuple[str, str]:
+    """(text just after the trigger, text just before it)."""
+    if offset <= 0:
+        return text, ""
+    return text[offset : offset + AFTER_WINDOW], text[max(0, offset - BEFORE_WINDOW) : offset]
+
+
 def parse_date_after(text: str, offset: int) -> Tuple[Optional[str], str, str]:
-    """The first date at or after offset, falling back to the whole string.
+    """The first date just after offset, else one just before it.
 
     A sentence like "for 11 months commencing from 1 April 2025 and expires on
     28 February 2026" holds two dates. Which one is the end date depends on
-    where the trigger phrase sits, so the caller passes that position.
+    where the trigger phrase sits, so the caller passes that position. A date
+    further away than the windows is not treated as belonging to this field.
     """
-    if offset > 0:
-        iso, raw, confidence = parse_date(text[offset:])
+    after, before = _windows(text, offset)
+    iso, raw, confidence = parse_date(after)
+    if iso:
+        return iso, raw, confidence
+    if before:
+        iso, raw, confidence = parse_date(before)
         if iso:
             return iso, raw, confidence
-    return parse_date(text)
+    return None, "", "low"
 
 
 def find_amount_after(
     text: str, offset: int, require_currency: bool = True
 ) -> Optional[str]:
-    if offset > 0:
-        value = find_amount(text[offset:], require_currency)
-        if value:
-            return value
-    return find_amount(text, require_currency)
+    after, before = _windows(text, offset)
+    return find_amount(after, require_currency) or (
+        find_amount(before, require_currency) if before else None
+    )
 
 
 def find_percent_after(text: str, offset: int) -> Optional[str]:
-    if offset > 0:
-        value = find_percent(text[offset:])
-        if value:
-            return value
-    return find_percent(text)
+    after, before = _windows(text, offset)
+    return find_percent(after) or (find_percent(before) if before else None)
 
 
 def find_duration_after(text: str, offset: int) -> Optional[str]:
-    if offset > 0:
-        value = find_duration(text[offset:])
-        if value:
-            return value
-    return find_duration(text)
+    after, before = _windows(text, offset)
+    return find_duration(after) or (find_duration(before) if before else None)
 
 
 def parse_amount_value(digits: str, multiplier: Optional[str]) -> Optional[float]:
@@ -205,19 +238,39 @@ def parse_amount_value(digits: str, multiplier: Optional[str]) -> Optional[float
 
 
 def format_amount(match: re.Match) -> str:
-    """Render a money match the way the document wrote it, prefixed with Rs."""
+    """Render a money match the way the document wrote it.
+
+    Malayalam amounts keep their own "രൂപ" suffix rather than being relabelled
+    with "Rs.", because the value should read back the way the document says it.
+    """
     raw = match.group(0).strip().rstrip("-/ ")
     if raw.lower().startswith(("rs", "inr", "₹")):
+        return raw
+    if "രൂപ" in raw:  # രൂപ
         return raw
     return "Rs. " + raw
 
 
 def find_amount(text: str, require_currency: bool = True) -> Optional[str]:
-    pattern = CURRENCY_AMOUNT if require_currency else AMOUNT
-    match = pattern.search(text)
-    if not match:
-        return None
-    return format_amount(match)
+    """First money value in text.
+
+    With require_currency, a currency marker must be present: "Rs. 500",
+    "₹500" or the Malayalam "500 രൂപ". Without it, any number counts.
+    """
+    if require_currency:
+        candidates = []
+        for pattern in (CURRENCY_AMOUNT, MALAYALAM_AMOUNT):
+            match = pattern.search(text)
+            if match:
+                candidates.append(match)
+        if not candidates:
+            return None
+        # Whichever marker appears first in the sentence.
+        match = min(candidates, key=lambda m: m.start())
+        return format_amount(match)
+
+    match = AMOUNT.search(text)
+    return format_amount(match) if match else None
 
 
 def find_percent(text: str) -> Optional[str]:
@@ -226,13 +279,22 @@ def find_percent(text: str) -> Optional[str]:
 
 
 def find_duration(text: str) -> Optional[str]:
-    match = DURATION.search(text)
-    return match.group(0).strip() if match else None
+    candidates = [m for m in (DURATION.search(text), MALAYALAM_DURATION.search(text)) if m]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda m: m.start()).group(0).strip()
 
 
 def duration_days(text: str) -> Optional[int]:
     match = DURATION.search(text)
     if not match:
+        malayalam = MALAYALAM_DURATION.search(text)
+        if malayalam:
+            try:
+                count = int(malayalam.group(1))
+            except ValueError:
+                return None
+            return count * _ML_UNITS[malayalam.group(2)]
         return None
     raw = match.group(1).lower()
     count = WORD_NUMBERS.get(raw)

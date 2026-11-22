@@ -2,7 +2,7 @@
 from typing import Dict, List, Tuple
 
 from schemas import Classification
-from utils import normalise
+from utils import normalise, normalise_phrase
 
 # (phrase, weight). Weights reflect how strongly a phrase pins the type down.
 RULES: Dict[str, Dict] = {
@@ -25,6 +25,13 @@ RULES: Dict[str, Dict] = {
             ("premises", 2),
             ("vacate", 2),
             ("lock-in period", 2),
+            # Malayalam
+            ("വാടക", 5),          # rent
+            ("വാടകക്കാരൻ", 4),     # tenant
+            ("കരാർ", 3),          # agreement
+            ("ഡിപ്പോസിറ്റ്", 3),    # deposit
+            ("വീട്", 2),           # house
+            ("ഒഴിയ", 2),          # vacate
         ],
     },
     "loan_agreement": {
@@ -47,6 +54,12 @@ RULES: Dict[str, Dict] = {
             ("foreclosure", 3),
             ("prepayment", 2),
             ("collateral", 2),
+            # Malayalam
+            ("വായ്പ", 5),          # loan
+            ("പലിശ", 4),          # interest
+            ("തിരിച്ചടവ്", 4),      # repayment
+            ("ഗഡു", 3),           # instalment
+            ("ബാങ്ക്", 2),          # bank
         ],
     },
     "hospital_bill": {
@@ -68,6 +81,12 @@ RULES: Dict[str, Dict] = {
             ("total payable", 2),
             ("ip no", 3),
             ("uhid", 4),
+            # Malayalam
+            ("ആശുപത്രി", 5),       # hospital
+            ("ബിൽ", 4),           # bill
+            ("ചികിത്സ", 4),        # treatment
+            ("രോഗി", 3),          # patient
+            ("മരുന്ന്", 2),         # medicine
         ],
     },
     "government_notice": {
@@ -89,6 +108,13 @@ RULES: Dict[str, Dict] = {
             ("failing which", 3),
             ("competent authority", 3),
             ("subject:", 1),
+            # Malayalam
+            ("അറിയിപ്പ്", 4),       # notice
+            ("സർക്കാർ", 4),        # government
+            ("പഞ്ചായത്ത്", 4),      # panchayat
+            ("നഗരസഭ", 4),         # municipality
+            ("നികുതി", 3),         # tax
+            ("ഉത്തരവ്", 3),        # order
         ],
     },
 }
@@ -106,7 +132,7 @@ def score_types(text: str) -> List[Tuple[str, int, List[str]]]:
         score = 0
         matched: List[str] = []
         for phrase, weight in rule["terms"]:
-            hits = haystack.count(phrase)
+            hits = haystack.count(normalise_phrase(phrase))
             if hits:
                 # Repeats add evidence, but with sharply diminishing returns.
                 score += weight + min(hits - 1, 3)

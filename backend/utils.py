@@ -1,6 +1,7 @@
 """Text cleanup, segmentation and small shared helpers."""
 import re
 import unicodedata
+from functools import lru_cache
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from schemas import Segment
@@ -63,6 +64,12 @@ _ABBREV = (
 
 _SENT_END = re.compile(r"(?<=[.!?ം])[\s]+")
 _NUMBERED_CLAUSE = re.compile(r"\n(?=\s*(?:\d{1,2}[.)]|\(\w{1,3}\)|[A-Z]{1,2}[.)])\s)")
+# Letters, bills and sanction tables lay fields out as "Label : value" with no
+# sentence punctuation at all. Without this they merge into one huge segment and
+# a value from one row gets attributed to another row's label.
+_LABEL_ROW = re.compile(
+    r"\n(?=\s*[A-Zഀ-ൿ][A-Za-z0-9 ./()ഀ-ൿ-]{2,44}\s*[:：])"
+)
 
 
 def split_sentences(text: str) -> List[str]:
@@ -74,7 +81,10 @@ def split_sentences(text: str) -> List[str]:
     if not text.strip():
         return []
     out: List[str] = []
-    for block in _NUMBERED_CLAUSE.split(text):
+    blocks: List[str] = []
+    for chunk in _NUMBERED_CLAUSE.split(text):
+        blocks.extend(_LABEL_ROW.split(chunk))
+    for block in blocks:
         for para in block.split("\n\n"):
             para = para.strip()
             if not para:
@@ -119,6 +129,35 @@ def segment_context(segments: List[Segment], index: int, window: int = 1) -> str
     return " ".join(s.text for s in segments[lo:hi] if s.page == page)
 
 
+MALAYALAM_RANGE = (0x0D00, 0x0D7F)
+
+
+def malayalam_ratio(text: str) -> float:
+    """Share of letters that are Malayalam script.
+
+    Small multilingual models often answer a "reply in Malayalam" instruction
+    in some other language entirely. Checking the script is the only honest way
+    to know whether we actually got Malayalam back.
+    """
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return 0.0
+    lo, hi = MALAYALAM_RANGE
+    hits = sum(1 for c in letters if lo <= ord(c) <= hi)
+    return hits / len(letters)
+
+
+def looks_malayalam(text: str, threshold: float = 0.45) -> bool:
+    """True when the text is mostly Malayalam script.
+
+    The threshold leaves room for Latin numerals, Rs. amounts and the odd
+    English term, which legitimately appear in Malayalam explanations.
+    """
+    if not text.strip():
+        return False
+    return malayalam_ratio(text) >= threshold
+
+
 def truncate(text: str, limit: int) -> str:
     text = text.strip()
     if len(text) <= limit:
@@ -126,9 +165,39 @@ def truncate(text: str, limit: int) -> str:
     return text[: limit - 3].rstrip() + "..."
 
 
+# Malayalam writes six consonants in a word-final "chillu" form that has its
+# own code point, but the same letter can also be encoded as consonant +
+# virama. OCR and typed text disagree about which to use, so both are folded to
+# one shape before any keyword matching.
+CHILLU = {
+    "ൺ": "ണ്",  # ൺ -> ണ്
+    "ൻ": "ന്",  # ൻ -> ന്
+    "ർ": "ര്",  # ർ -> ര്
+    "ൽ": "ല്",  # ൽ -> ല്
+    "ൾ": "ള്",  # ൾ -> ള്
+    "ൿ": "ക്",  # ൿ -> ക്
+}
+_CHILLU_RE = re.compile("[%s]" % "".join(CHILLU))
+
+
+def fold_malayalam(text: str) -> str:
+    if not text:
+        return text
+    return _CHILLU_RE.sub(lambda m: CHILLU[m.group(0)], text)
+
+
 def normalise(text: str) -> str:
-    """Lowercase, collapse whitespace: for keyword matching only."""
-    return re.sub(r"\s+", " ", text.lower()).strip()
+    """Lowercase, fold Malayalam chillu forms, collapse whitespace.
+
+    For keyword matching only. Never use the result as display text.
+    """
+    return re.sub(r"\s+", " ", fold_malayalam(text).lower()).strip()
+
+
+@lru_cache(maxsize=4096)
+def normalise_phrase(phrase: str) -> str:
+    """normalise() for rule keywords, cached since the rule lists are static."""
+    return normalise(phrase)
 
 
 def count_by(items: Iterable[str]) -> Dict[str, int]:

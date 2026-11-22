@@ -7,7 +7,7 @@ export default function ExtractedTextViewer({ pages, language }) {
   const withText = (pages ?? []).filter((page) => page.text.trim());
 
   return (
-    <section className="card p-5 sm:p-6">
+    <section className="card p-5 ">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}

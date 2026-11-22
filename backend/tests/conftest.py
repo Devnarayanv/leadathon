@@ -69,7 +69,11 @@ def ollama_down(monkeypatch):
         base_url="http://localhost:11434",
         message="Ollama is not reachable (test).",
     )
-    monkeypatch.setattr(ollama_service, "check_status", lambda force=False: status)
+    monkeypatch.setattr(
+        ollama_service,
+        "check_status",
+        lambda force=False, model=None: status,
+    )
 
     def refuse(*_args, **_kwargs):
         raise ollama_service.OllamaUnavailable(status.message)

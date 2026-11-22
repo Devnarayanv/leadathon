@@ -68,12 +68,15 @@ def stub_ollama(monkeypatch):
 
     monkeypatch.setattr(config, "OLLAMA_BASE_URL", "http://127.0.0.1:%d" % port)
     monkeypatch.setattr(config, "OLLAMA_MODEL", StubOllama.model_name)
-    monkeypatch.setattr(ollama_service, "_status_cache", None, raising=False)
+    # Malayalam would otherwise route to the real OLLAMA_MODEL_ML, which this
+    # stub does not serve.
+    monkeypatch.setattr(config, "OLLAMA_MODEL_ML", "")
+    monkeypatch.setattr(ollama_service, "_status_cache", {}, raising=False)
     StubOllama.prompts_seen = []
     yield StubOllama
     server.shutdown()
     server.server_close()
-    ollama_service._status_cache = None
+    ollama_service._status_cache = {}
 
 
 def a_clause(clause_id=1):
@@ -115,11 +118,11 @@ def test_unreachable_server_gives_setup_instructions(monkeypatch):
     import config
 
     monkeypatch.setattr(config, "OLLAMA_BASE_URL", "http://127.0.0.1:%d" % free_port())
-    ollama_service._status_cache = None
+    ollama_service._status_cache = {}
     status = ollama_service.check_status(force=True)
     assert status.reachable is False
     assert "ollama serve" in status.message
-    ollama_service._status_cache = None
+    ollama_service._status_cache = {}
 
 
 # ---------------------------------------------------------------- explanations
@@ -242,7 +245,11 @@ def test_rule_fallback_never_claims_to_be_the_model(ollama_down):
     )
     explanation = clauses[0].explanation
     assert explanation.source == "rules"
-    assert "not available" in explanation.plain_meaning
+    assert "No plain-language rewrite" in explanation.plain_meaning
+    # The fallback text must not assert a cause it cannot know; the specific
+    # reason belongs in the warnings.
+    assert "not available" not in explanation.plain_meaning
+    assert any("not reachable" in warning for warning in warnings)
     assert warnings
 
 
@@ -317,3 +324,150 @@ def test_summary_falls_back_to_rules_without_ollama(ollama_down):
     assert source == "rules"
     assert "Rental agreement" in summary
     assert warnings
+
+
+# ---------------------------------------------------------------- language guard
+
+
+def test_wrong_language_reply_is_rejected_not_shown_as_malayalam(stub_ollama):
+    # qwen2.5:3b really does answer Malayalam requests in Chinese. Presenting
+    # that as the Malayalam translation would be a lie, so it is discarded.
+    StubOllama.reply_body = json.dumps(
+        {
+            "explanations": [
+                {
+                    "id": 1,
+                    "plain_meaning": "房东可以在任何时候进入租客的房屋检查。",
+                    "what_it_says": "房东有权进入房屋。",
+                    "why_pay_attention": "这给了房东太多控制权。",
+                }
+            ]
+        }
+    )
+    clauses, warnings = ai_explainer.explain_clauses(
+        [a_clause()], "Rental agreement", [], "ml"
+    )
+    assert clauses[0].explanation.source == "rules"
+    assert any("did not reply in Malayalam" in warning for warning in warnings)
+
+
+def test_genuine_malayalam_reply_is_accepted(stub_ollama):
+    StubOllama.reply_body = json.dumps(
+        {
+            "explanations": [
+                {
+                    "id": 1,
+                    "plain_meaning": "വാടക വൈകിയാൽ ഓരോ ദിവസത്തിനും 250 രൂപ നൽകണം.",
+                    "what_it_says": "വൈകി നൽകുന്നതിന് പിഴയുണ്ട്.",
+                    "why_pay_attention": "ഓരോ ദിവസവും തുക കൂടും.",
+                }
+            ]
+        }
+    )
+    clauses, warnings = ai_explainer.explain_clauses(
+        [a_clause()], "Rental agreement", [], "ml"
+    )
+    assert clauses[0].explanation.source == "llm"
+    assert warnings == []
+
+
+def test_english_reply_is_not_checked_for_malayalam(stub_ollama):
+    StubOllama.reply_body = json.dumps(
+        {"explanations": [{"id": 1, "plain_meaning": "A plain English explanation."}]}
+    )
+    clauses, _warnings = ai_explainer.explain_clauses(
+        [a_clause()], "Rental agreement", [], "en"
+    )
+    assert clauses[0].explanation.source == "llm"
+
+
+def test_malayalam_summary_in_another_language_falls_back(stub_ollama):
+    StubOllama.reply_body = json.dumps({"summary": "这是一份租赁协议。"})
+    summary, source, warnings = ai_explainer.build_summary(
+        "Rental agreement", [], [a_clause()], "ml"
+    )
+    assert source == "rules"
+    assert any("Malayalam" in warning for warning in warnings)
+
+
+def test_malayalam_answer_in_another_language_falls_back_to_evidence(stub_ollama):
+    StubOllama.reply_body = json.dumps({"answer": "通知期为两个月。", "found": True})
+    segments = [
+        Segment(id=1, text="Either party may terminate by giving 2 months prior written notice.", page=1)
+    ]
+    response = question_answering.answer_question(
+        "What is the notice period?", segments, "Rental agreement", language="ml"
+    )
+    assert response.source == "rules"
+    assert response.evidence
+    assert "another language" in response.answer
+
+
+def test_malayalam_ratio_scoring():
+    from utils import looks_malayalam, malayalam_ratio
+
+    assert looks_malayalam("വാടക വൈകിയാൽ പിഴ നൽകണം.")
+    assert not looks_malayalam("房东可以进入房屋。")
+    assert not looks_malayalam("A plain English sentence.")
+    assert not looks_malayalam("")
+    # Latin digits and an Rs. amount must not disqualify real Malayalam.
+    assert looks_malayalam("ഓരോ ദിവസവും Rs. 250 നൽകണം എന്നാണ് വ്യവസ്ഥ.")
+    assert malayalam_ratio("വാടക") == 1.0
+
+
+# ---------------------------------------------------------------- truncated replies
+
+
+def test_salvage_recovers_complete_objects_from_a_cut_off_reply():
+    raw = (
+        '{"explanations": [{"id": 1, "plain_meaning": "First one."}, '
+        '{"id": 2, "plain_meaning": "Second one."}, '
+        '{"id": 3, "plain_meaning": "Third was cut o'
+    )
+    objects = ollama_service.salvage_json_objects(raw)
+    ids = [o.get("id") for o in objects if "id" in o]
+    assert ids == [1, 2]
+
+
+def test_salvage_ignores_braces_inside_strings():
+    raw = '{"id": 1, "plain_meaning": "Pay {Rs. 250} per day."} {"id": 2, "plain_meaning": "ok"}'
+    objects = ollama_service.salvage_json_objects(raw)
+    assert len(objects) == 2
+    assert objects[0]["plain_meaning"] == "Pay {Rs. 250} per day."
+
+
+def test_salvage_handles_escaped_quotes():
+    raw = '{"id": 1, "plain_meaning": "He said \\"no\\" to it."}'
+    objects = ollama_service.salvage_json_objects(raw)
+    assert objects[0]["id"] == 1
+
+
+def test_a_truncated_batch_keeps_the_clauses_that_did_arrive(stub_ollama):
+    StubOllama.reply_body = (
+        '{"explanations": [{"id": 1, "plain_meaning": "Explained one."}, '
+        '{"id": 2, "plain_meaning": "Explained two."}, '
+        '{"id": 3, "plain_meaning": "cut off here'
+    )
+    clauses = [a_clause(i) for i in (1, 2, 3)]
+    clauses, warnings = ai_explainer.explain_clauses(
+        clauses, "Rental agreement", [], "en"
+    )
+    assert clauses[0].explanation.source == "llm"
+    assert clauses[1].explanation.source == "llm"
+    # The clause that never arrived falls back rather than being invented.
+    assert clauses[2].explanation.source == "rules"
+    assert any("cut short" in warning for warning in warnings)
+
+
+def test_a_truncated_batch_costs_only_one_request(stub_ollama):
+    StubOllama.reply_body = '{"explanations": [{"id": 1, "plain_meaning": "ok"}, {"id": 2, "trunc'
+    ai_explainer.explain_clauses([a_clause(1), a_clause(2)], "Rental agreement", [], "en")
+    # Retrying a reply cut off by the token limit truncates at the same place,
+    # so it must not pay for a second generation.
+    assert len(StubOllama.prompts_seen) == 1
+
+
+def test_malayalam_gets_a_larger_token_budget_than_english():
+    import config
+
+    assert config.clause_token_budget_for("ml") > config.clause_token_budget_for("en")

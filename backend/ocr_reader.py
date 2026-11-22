@@ -1,5 +1,6 @@
 """Tesseract OCR, used only when embedded PDF text is missing."""
 import io
+import os
 import logging
 import shutil
 from functools import lru_cache
@@ -26,6 +27,7 @@ def ocr_status() -> Tuple[bool, str]:
 
     if config.TESSERACT_CMD:
         pytesseract.pytesseract.tesseract_cmd = config.TESSERACT_CMD
+    apply_tessdata_dir()
     cmd = pytesseract.pytesseract.tesseract_cmd or "tesseract"
     if shutil.which(cmd) is None:
         return (
@@ -40,6 +42,22 @@ def ocr_status() -> Tuple[bool, str]:
     return True, "Tesseract %s ready." % version
 
 
+def apply_tessdata_dir() -> str:
+    """Point Tesseract at a custom tessdata folder, if one is configured.
+
+    TESSDATA_PREFIX is used rather than the --tessdata-dir flag: pytesseract
+    splits its config string on whitespace, so a flag carrying a path with
+    spaces (or quotes) reaches Tesseract mangled.
+    """
+    if not config.TESSDATA_DIR:
+        return ""
+    if not os.path.isdir(config.TESSDATA_DIR):
+        logger.warning("TESSDATA_DIR does not exist: %s", config.TESSDATA_DIR)
+        return ""
+    os.environ["TESSDATA_PREFIX"] = config.TESSDATA_DIR
+    return config.TESSDATA_DIR
+
+
 @lru_cache(maxsize=1)
 def available_languages() -> Tuple[str, ...]:
     ok, _ = ocr_status()
@@ -48,6 +66,7 @@ def available_languages() -> Tuple[str, ...]:
     import pytesseract
 
     try:
+        apply_tessdata_dir()
         return tuple(pytesseract.get_languages(config=""))
     except Exception:  # pragma: no cover
         return ()
@@ -96,6 +115,7 @@ def ocr_image_bytes(data: bytes) -> str:
         raise ValueError("The uploaded file is not a readable image.") from exc
 
     try:
+        apply_tessdata_dir()
         return pytesseract.image_to_string(prepared, lang=resolve_langs())
     except Exception as exc:  # pragma: no cover - local tesseract failures
         raise OcrUnavailable("OCR failed: %s" % exc) from exc

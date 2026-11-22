@@ -1,0 +1,170 @@
+================================================================
+ PLAINSPEAK - START / STOP / RESTART CHEAT SHEET  (Windows)
+================================================================
+Project folder : C:\Devan\Projects\leadathon
+Backend        : http://localhost:8000      (FastAPI + uvicorn)
+Frontend       : http://localhost:5173      (Vite dev server)
+Ollama         : http://localhost:11434     (local LLM)
+
+You need THREE things running: Ollama, the backend, the frontend.
+Use TWO PowerShell terminals (Ollama usually runs by itself).
+Always open the app on http://localhost:5173  (not 127.0.0.1).
+
+
+----------------------------------------------------------------
+ 1. FIRST TIME ONLY  (skip if already set up)
+----------------------------------------------------------------
+cd C:\Devan\Projects\leadathon
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r backend\requirements.txt
+cd frontend
+npm install
+cd ..
+copy .env.example .env
+ollama pull qwen2.5:3b
+
+If PowerShell refuses to activate the venv:
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+
+----------------------------------------------------------------
+ 2. NORMAL START  (every day)
+----------------------------------------------------------------
+--- TERMINAL 1 : BACKEND ---------------------------------------
+cd C:\Devan\Projects\leadathon
+.\.venv\Scripts\Activate.ps1
+cd backend
+uvicorn main:app --reload --port 8000
+
+  Wait for:  Application startup complete.
+  The first start preloads the model, so it can take a minute.
+
+--- TERMINAL 2 : FRONTEND --------------------------------------
+cd C:\Devan\Projects\leadathon\frontend
+npm run dev
+
+  Wait for:  Local: http://localhost:5173/
+  Then open that link in the browser.
+
+--- OLLAMA (only if the app says it is unreachable) ------------
+ollama serve
+
+One-liner for the backend (no separate activate step):
+cd C:\Devan\Projects\leadathon\backend; ..\.venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
+
+
+----------------------------------------------------------------
+ 3. STOP
+----------------------------------------------------------------
+Click the terminal window and press  Ctrl + C   (in each terminal).
+
+If Ctrl+C does not free the port, kill by port:
+  Get-NetTCPConnection -LocalPort 8000 | Select-Object -Expand OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }
+  Get-NetTCPConnection -LocalPort 5173 | Select-Object -Expand OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }
+
+See what is holding a port:
+  Get-NetTCPConnection -LocalPort 8000 | Format-Table LocalPort,State,OwningProcess
+
+Blunt version (kills every python / node on the machine):
+  Stop-Process -Name python -Force
+  Stop-Process -Name node   -Force
+
+
+----------------------------------------------------------------
+ 4. RESTART
+----------------------------------------------------------------
+BACKEND
+  Code changes in backend\*.py   -> nothing to do, --reload restarts it.
+  Changes in .env                -> Ctrl+C, then run uvicorn again.
+  Changed OLLAMA_MODEL           -> Ctrl+C, then run uvicorn again.
+  Installed espeak-ng / Tesseract-> Ctrl+C, then run uvicorn again.
+
+FRONTEND
+  Code changes in src\           -> saves hot-reload by themselves.
+  Changed vite.config.js         -> Ctrl+C, then: npm run dev
+  Installed a new npm package    -> Ctrl+C, npm install, npm run dev
+
+OLLAMA
+  ollama ps        (what is loaded)
+  ollama stop <model-name>
+  ollama serve     (start it again)
+
+FULL RESET (everything, in order)
+  1. Ctrl+C in both terminals
+  2. kill-by-port commands from section 3 if ports are stuck
+  3. Terminal 1: cd C:\Devan\Projects\leadathon; .\.venv\Scripts\Activate.ps1; cd backend; uvicorn main:app --reload --port 8000
+  4. Terminal 2: cd C:\Devan\Projects\leadathon\frontend; npm run dev
+  5. Hard-refresh the browser:  Ctrl + Shift + R
+
+
+----------------------------------------------------------------
+ 5. IS IT ACTUALLY WORKING?
+----------------------------------------------------------------
+Backend health :  curl http://localhost:8000/api/health
+API docs       :  http://localhost:8000/docs
+Ollama alive   :  curl http://localhost:11434/api/tags
+Models pulled  :  ollama list
+App            :  http://localhost:5173
+
+The status pill in the top right of the app shows the real state of
+Ollama and OCR. Click it for the exact fix command.
+
+
+----------------------------------------------------------------
+ 6. PRODUCTION-STYLE FRONTEND  (for a demo)
+----------------------------------------------------------------
+cd C:\Devan\Projects\leadathon\frontend
+npm run build
+npm run preview        -> serves on http://localhost:4173
+
+The backend must still be running on port 8000.
+
+
+----------------------------------------------------------------
+ 7. TESTS
+----------------------------------------------------------------
+cd C:\Devan\Projects\leadathon
+.\.venv\Scripts\Activate.ps1
+cd backend
+pytest                      (all tests)
+pytest tests\test_rules.py  (one file)
+
+
+----------------------------------------------------------------
+ 8. QUICK FIXES
+----------------------------------------------------------------
+"The backend is not reachable"
+  -> uvicorn is not running, or you opened 127.0.0.1 instead of localhost.
+
+"Ollama is not reachable"
+  -> ollama serve   (or start the Ollama desktop app)
+
+"Model X is not installed"
+  -> ollama list, then ollama pull <model>, then restart the backend.
+
+Port 8000 already in use
+  -> use the kill-by-port command in section 3, or run on another port:
+     uvicorn main:app --reload --port 8001
+     (then update the proxy target in frontend\vite.config.js)
+
+Blank page after npm run dev
+  -> npm install did not finish. Run it again. If npm warns about the
+     esbuild install script:
+     cd frontend; npm install-scripts approve esbuild
+
+Explanations time out
+  -> raise OLLAMA_TIMEOUT in .env, or lower MAX_EXPLAINED_CLAUSES,
+     then restart the backend.
+
+No Malayalam audio
+  -> winget install eSpeak-NG.eSpeak-NG   then restart the backend.
+
+"Tesseract OCR was not found"  (only matters for scans/photos)
+  -> install Tesseract, then set in .env:
+     TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+     and restart the backend.
+
+Nothing makes sense any more
+  -> full reset (section 4) + Ctrl+Shift+R in the browser.
+================================================================

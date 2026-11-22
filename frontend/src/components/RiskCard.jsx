@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Cpu, HelpCircle, ListChecks, Ruler } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { ATTENTION_LABELS, CONFIDENCE_LABELS, t } from "../i18n.js";
 import { LEVEL_STYLES } from "./RiskSummary.jsx";
 import AudioControls from "./AudioControls.jsx";
@@ -9,7 +9,9 @@ function Block({ title, children, language }) {
   return (
     <div>
       <p className="label">{title}</p>
-      <p className={`prose-plain mt-1 ${language === "ml" ? "lang-ml" : ""}`}>{children}</p>
+      <p className={`prose-plain mt-1 ${language === "ml" ? "lang-ml" : ""}`}>
+        {children}
+      </p>
     </div>
   );
 }
@@ -32,27 +34,23 @@ export default function RiskCard({ clause, language, speech, defaultOpen = false
   return (
     <article
       id={`clause-${clause.id}`}
-      className={`card p-4 ring-1 ring-inset sm:p-5 ${style.ring} scroll-mt-20`}
+      className={`card scroll-mt-20 border-l-2 p-5 ${style.accent}`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className={`chip ${style.chip}`}>
-          <Icon size={13} />
+          <Icon size={12} />
           {ATTENTION_LABELS[language]?.[clause.attention_level] ?? clause.attention_level}
         </span>
-        <span className="chip bg-canvas text-ink-soft">{clause.label}</span>
+        <span className="text-xs text-ink-soft">{clause.label}</span>
         {clause.page != null && (
-          <span className="text-xs text-ink-soft">
+          <span className="text-xs text-ink-faint">
             {t(language, "page")} {clause.page}
           </span>
         )}
-        <span className="ml-auto flex items-center gap-1.5 text-[0.7rem] text-ink-soft">
-          {fromModel ? <Cpu size={12} /> : <Ruler size={12} />}
+        <span className="ml-auto text-[0.7rem] text-ink-faint">
           {fromModel ? t(language, "bySource").llm : t(language, "bySource").rules}
         </span>
       </div>
-
-      <p className="label mt-3">{t(language, "originalText")}</p>
-      <blockquote className="evidence mt-1.5">{clause.text}</blockquote>
 
       {explanation?.plain_meaning && (
         <p className={`prose-plain mt-3 ${language === "ml" ? "lang-ml" : ""}`}>
@@ -60,15 +58,18 @@ export default function RiskCard({ clause, language, speech, defaultOpen = false
         </p>
       )}
 
+      <p className="label mt-3">{t(language, "originalText")}</p>
+      <blockquote className="evidence mt-1.5">{clause.text}</blockquote>
+
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="btn-secondary text-xs"
+          className="btn-ghost !px-2 !py-1 text-xs"
           aria-expanded={open}
         >
           <ChevronDown
-            size={14}
+            size={13}
             className={`transition-transform ${open ? "rotate-180" : ""}`}
           />
           {open ? t(language, "collapse") : t(language, "expand")}
@@ -83,7 +84,7 @@ export default function RiskCard({ clause, language, speech, defaultOpen = false
           compact
         />
         <span
-          className="ml-auto text-[0.7rem] text-ink-soft"
+          className="ml-auto text-[0.7rem] text-ink-faint"
           title="How strongly the wording matched the rule"
         >
           {CONFIDENCE_LABELS[language]?.[clause.confidence] ?? clause.confidence}
@@ -102,29 +103,28 @@ export default function RiskCard({ clause, language, speech, defaultOpen = false
           <Block title={t(language, "whyAttention")} language={language}>
             {explanation?.why_pay_attention}
           </Block>
-          <Block title={t(language, "nextStep")} language={language}>
-            {explanation?.next_step}
-          </Block>
           {explanation?.uncertain && (
-            <div className="rounded-lg bg-warn-soft px-3.5 py-3">
+            <div className="rule-left border-warn/40">
               <p className="label text-warn">{t(language, "uncertain")}</p>
-              <p className={`prose-plain mt-1 text-warn ${language === "ml" ? "lang-ml" : ""}`}>
+              <p
+                className={`prose-plain mt-1 text-ink-soft ${
+                  language === "ml" ? "lang-ml" : ""
+                }`}
+              >
                 {explanation.uncertain}
               </p>
             </div>
           )}
-          <div className="flex items-start gap-2 rounded-lg bg-brand-soft px-3.5 py-3">
-            <ListChecks size={15} className="mt-0.5 shrink-0 text-brand-ink" />
-            <div>
-              <p className="label text-brand-ink">{t(language, "suggestedAction")}</p>
-              <p className="prose-plain mt-0.5 text-brand-ink">
-                {explanation?.next_step || clause.suggested_action}
-              </p>
-            </div>
+          <div className="rule-left border-ink">
+            <p className="label text-ink">{t(language, "suggestedAction")}</p>
+            <p
+              className={`prose-plain mt-1 ${language === "ml" ? "lang-ml" : ""}`}
+            >
+              {explanation?.next_step || clause.suggested_action}
+            </p>
           </div>
           {clause.matched_terms?.length > 0 && (
-            <p className="flex flex-wrap items-center gap-1.5 text-[0.7rem] text-ink-soft">
-              <HelpCircle size={12} />
+            <p className="flex flex-wrap items-center gap-1.5 text-[0.7rem] text-ink-faint">
               Matched wording:
               {clause.matched_terms.map((term) => (
                 <code key={term} className="rounded bg-canvas px-1.5 py-0.5">

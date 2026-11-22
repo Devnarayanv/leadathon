@@ -266,3 +266,69 @@ def test_relative_window_without_a_date_is_low_confidence():
     assert found[0].date_iso is None
     assert found[0].confidence == "low"
     assert "no explicit calendar date" in found[0].description
+
+
+# ---------------------------------------------------------------- value windows
+
+
+def test_a_value_far_from_its_label_is_not_claimed_as_that_field():
+    # A sanction table: the processing charge is a percentage, and the only
+    # Rs. amount nearby belongs to the EMI row. Reporting Rs. 28,410 as the
+    # processing fee would be inventing a number the document never gave.
+    facts = fact_extractor.extract_facts(
+        segs(
+            "Equated Monthly Instalment: Rs. 28,410/-",
+            "Processing charges : 0.50% of the sanctioned amount plus GST, non-refundable",
+        ),
+        "loan_agreement",
+    )
+    values = {fact.key: fact.value for fact in facts}
+    assert values["emi"] == "Rs. 28,410"
+    assert values["processing_fee"] == "0.50%"
+
+
+def test_fee_takes_whichever_of_amount_or_percent_sits_nearer_the_label():
+    facts = fact_extractor.extract_facts(
+        segs("Processing fee of Rs. 2,500 plus 18% GST is payable."),
+        "loan_agreement",
+    )
+    values = {fact.key: fact.value for fact in facts}
+    assert values["processing_fee"] == "Rs. 2,500"
+
+
+def test_no_value_near_the_label_yields_no_fact_rather_than_a_distant_one():
+    facts = fact_extractor.extract_facts(
+        segs(
+            "Loan amount : Rs. 5,00,000 sanctioned to the borrower on the usual terms "
+            "and conditions of the lender as set out in the schedule to this letter, "
+            "which the borrower has read and accepted in full without any reservation. "
+            "Rate of interest : as advised separately by the branch."
+        ),
+        "loan_agreement",
+    )
+    values = {fact.key: fact.value for fact in facts}
+    # The only percentage-free interest row must not borrow the loan amount.
+    assert "interest_rate" not in values or "%" in values["interest_rate"]
+
+
+def test_label_value_rows_become_separate_segments():
+    from utils import split_sentences
+
+    parts = split_sentences(
+        "Principal amount         : Rs. 32,00,000/-\n"
+        "Rate of interest         : 8.75% per annum\n"
+        "Tenure                   : 240 months"
+    )
+    assert len(parts) == 3
+    assert "32,00,000" in parts[0]
+    assert "8.75%" in parts[1]
+    assert "240 months" in parts[2]
+
+
+def test_label_row_splitting_does_not_break_ordinary_prose():
+    from utils import split_sentences
+
+    parts = split_sentences(
+        "The Tenant shall pay the rent monthly.\nThe Landlord shall issue a receipt."
+    )
+    assert len(parts) == 2

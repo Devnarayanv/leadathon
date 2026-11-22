@@ -5,7 +5,8 @@ from typing import Dict, List, Tuple
 import pymupdf as fitz  # PyMuPDF 1.24+ exposes the package as pymupdf
 
 import config
-from ocr_reader import OcrUnavailable, ocr_image_bytes, ocr_status
+import ocr_reader
+from ocr_reader import OcrUnavailable
 from schemas import PageText
 from utils import clean_text
 
@@ -88,7 +89,7 @@ def extract_pdf(data: bytes) -> Tuple[List[PageText], Dict]:
 
 
 def _ocr_missing_pages(doc, pages: List[PageText], candidates: List[int], info: Dict) -> None:
-    ok, message = ocr_status()
+    ok, message = ocr_reader.ocr_status()
     info["ocr_available"] = ok
     info["ocr_message"] = message
     if not ok:
@@ -109,7 +110,7 @@ def _ocr_missing_pages(doc, pages: List[PageText], candidates: List[int], info: 
     for index in budget:
         try:
             pixmap = doc.load_page(index).get_pixmap(matrix=matrix)
-            text = clean_text(ocr_image_bytes(pixmap.tobytes("png")))
+            text = clean_text(ocr_reader.ocr_image_bytes(pixmap.tobytes("png")))
         except OcrUnavailable as exc:
             info["ocr_available"] = False
             info["ocr_message"] = str(exc)
@@ -129,14 +130,14 @@ def extract_image(data: bytes) -> Tuple[List[PageText], Dict]:
     """Single-page extraction for an uploaded photo or scan."""
     info = _new_info()
     info["total_pages"] = 1
-    ok, message = ocr_status()
+    ok, message = ocr_reader.ocr_status()
     info["ocr_available"] = ok
     info["ocr_message"] = message
     if not ok:
         info["warnings"].append("Image uploads need OCR, which is unavailable. " + message)
         return [PageText(page=1, text="", source="empty")], info
 
-    text = clean_text(ocr_image_bytes(data))
+    text = clean_text(ocr_reader.ocr_image_bytes(data))
     if not text.strip():
         info["warnings"].append(
             "OCR read no text from this image. Try a sharper, well-lit photo."

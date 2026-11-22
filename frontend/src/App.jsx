@@ -16,7 +16,12 @@ export default function App() {
   const [error, setError] = useState("");
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [lastFile, setLastFile] = useState(null);
-  const speech = useSpeech();
+  // Health reports whether the offline engine can cover languages the
+  // browser has no voice for.
+  const speech = useSpeech({
+    available: Boolean(health?.tts?.available),
+    malayalam: Boolean(health?.tts?.malayalam),
+  });
 
   const refreshHealth = useCallback(async () => {
     try {
@@ -123,6 +128,7 @@ export default function App() {
         onPrivacy={() => setPrivacyOpen(true)}
         health={health}
         onRefreshHealth={refreshHealth}
+        showNew={Boolean(result)}
       />
 
       {result ? (
@@ -134,6 +140,7 @@ export default function App() {
           speech={speech}
           onRetryAi={onRetryAi}
           retryBusy={retryBusy}
+          malayalamModel={health?.ollama_malayalam?.model}
         />
       ) : (
         <Home

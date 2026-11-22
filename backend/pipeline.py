@@ -105,7 +105,7 @@ def analyse(
 
     doc_label = classification.label if classification.certain else "unknown / uncertain"
 
-    status = ollama_service.check_status()
+    status = ollama_service.check_status(model=config.model_for(language))
     summary = ai_explainer.rule_summary(doc_label, facts, clauses)
     summary_source = "rules"
 

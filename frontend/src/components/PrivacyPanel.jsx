@@ -22,8 +22,16 @@ const POINTS = [
     "Scans and photos are processed by Tesseract on this machine. Nothing is sent to an online OCR service.",
   ],
   [
+    "Google Calendar",
+    "Sending a deadline to Google Calendar is the only feature that leaves your machine, and it only happens when you click that button. Google receives the date, the short description and the file name. The quoted clause text is never put in the link. Downloading the .ics file instead keeps everything local.",
+  ],
+  [
     "Audio",
-    "Speech comes from your browser's built-in voices. Depending on your operating system, the browser may use an online voice; that is the browser's behaviour, not PlainSpeak's.",
+    "Speech uses your browser's own voices first. Windows ships no Malayalam voice, so when none is found PlainSpeak falls back to eSpeak NG running locally on this machine rather than reading Malayalam in an English voice. If eSpeak NG is not installed, the Read aloud button is disabled for that language instead of speaking the wrong one. Install it with: winget install eSpeak-NG.eSpeak-NG",
+  ],
+  [
+    "A note on browser voices",
+    "Some browsers (notably Edge) offer 'Online (Natural)' voices that send the text to the vendor's servers to be spoken. PlainSpeak cannot tell these apart from local ones, so if that matters to you, pick a local voice in the voice selector or rely on the offline engine.",
   ],
   [
     "What this is not",
@@ -35,7 +43,7 @@ export default function PrivacyPanel({ open, onClose }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4">
-      <div className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-t-2xl border border-line bg-surface p-5 sm:rounded-[var(--radius-card)] sm:p-6">
+      <div className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-t-2xl border border-line bg-surface p-5 sm:rounded-[var(--radius-card)] ">
         <div className="flex items-start justify-between gap-3">
           <h2 className="flex items-center gap-2 text-base font-semibold">
             <ShieldCheck size={18} className="text-good" />
