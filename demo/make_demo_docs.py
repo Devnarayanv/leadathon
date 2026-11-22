@@ -1,0 +1,262 @@
+"""Generate the synthetic demo documents used for testing and demos.
+
+Run:  python demo/make_demo_docs.py
+
+Every name, address, amount and date below is invented. No real person,
+property, bank, hospital or office is involved.
+"""
+import sys
+from pathlib import Path
+
+import pymupdf as fitz
+
+OUT_DIR = Path(__file__).resolve().parent
+
+BANNER = "SYNTHETIC DEMO DOCUMENT - FICTIONAL DATA - NOT A REAL AGREEMENT"
+
+RENTAL = """RESIDENTIAL RENTAL AGREEMENT
+
+{banner}
+
+This Rental Agreement is made on 1st April 2025 at Kochi, Kerala between
+Mr. Anil Varma, residing at 12 Example Road, Kakkanad (hereinafter the
+"Landlord") and Ms. Reema Joseph, residing at 7 Sample Lane, Edappally
+(hereinafter the "Tenant").
+
+1. PREMISES
+The Landlord lets to the Tenant Flat No. 4B, Demo Residency, Kakkanad, Kochi,
+for residential use only.
+
+2. TERM
+The agreement is for a period of 11 months commencing from 1st April 2025 and
+expires on 28th February 2026.
+
+3. RENT
+The Tenant shall pay a monthly rent of Rs. 18,500/- on or before the 5th day of
+every English calendar month.
+
+4. SECURITY DEPOSIT
+The Tenant has paid an interest free security deposit of Rs. 1,10,000/- to the
+Landlord. The security deposit shall be refunded at the time of vacating the
+premises after deduction of arrears of rent, unpaid electricity charges and the
+cost of repairs for any damage beyond normal wear and tear, as assessed solely
+by the Landlord.
+
+5. MAINTENANCE AND ADDITIONAL CHARGES
+In addition to the rent, the Tenant shall pay society maintenance charges of
+Rs. 2,400/- per month, and electricity and water charges as per actual meter
+readings. Any additional charge levied by the association shall be borne by the
+Tenant.
+
+6. LATE PAYMENT
+If the rent is not paid on or before the 5th day of the month, the Tenant shall
+pay a late payment penalty of Rs. 250/- per day of delay until the rent is paid
+in full.
+
+7. LOCK-IN PERIOD
+There shall be a lock-in period of 6 months from the date of commencement. If
+the Tenant vacates before the expiry of the lock-in period, the Tenant shall
+forfeit two months rent from the security deposit.
+
+8. NOTICE PERIOD AND EARLY TERMINATION
+Either party may terminate this agreement after the lock-in period by giving
+2 months prior written notice. In case of early termination by the Tenant
+without such notice, an amount equal to one month rent shall be deducted from
+the security deposit.
+
+9. RENEWAL
+Unless either party gives written notice of its intention not to continue at
+least 30 days before 28th February 2026, this agreement shall stand renewed
+automatically for a further term of 11 months with an escalation of 7% in the
+monthly rent.
+
+10. ENTRY
+The Landlord shall have the right to enter the premises for inspection at any
+time without prior notice in case of a suspected breach of this agreement.
+
+11. SUBLETTING
+The Tenant shall not sublet, assign or part with possession of the premises.
+
+12. OBLIGATIONS
+The Tenant shall maintain the premises in good condition at their own cost and
+shall be responsible for minor repairs up to Rs. 1,000/- per occurrence.
+
+13. DISPUTES
+Any decision of the Landlord regarding deductions from the security deposit
+shall be final and binding on the Tenant.
+
+{banner}
+"""
+
+LOAN = """PERSONAL LOAN AGREEMENT
+
+{banner}
+
+This Loan Agreement is executed on 15th May 2025 between Demo Finance Limited,
+a fictional non-banking finance company (the "Lender") and Mr. Sabu Thomas
+(the "Borrower").
+
+1. LOAN AMOUNT
+The Lender sanctions a loan amount of Rs. 4,50,000/- to the Borrower.
+
+2. RATE OF INTEREST
+The loan shall carry a floating rate of interest at the rate of 14.5% per annum,
+compounded monthly. The Lender may revise the interest rate at its sole
+discretion on giving 15 days notice to the Borrower.
+
+3. REPAYMENT
+The loan is repayable in 48 equated monthly instalments. The EMI is Rs. 12,380/-
+and the first instalment is due on 10th July 2025. Repayment shall commence from
+that date.
+
+4. PROCESSING FEE
+A processing fee of 2% of the loan amount plus applicable taxes shall be
+deducted from the disbursed amount. The processing fee is non-refundable.
+
+5. DEFAULT AND PENAL INTEREST
+If the Borrower fails to pay any instalment on its due date, penal interest at
+the rate of 3% per month shall be charged on the overdue amount, in addition to
+a late fee of Rs. 600/- per instalment.
+
+6. PREPAYMENT
+The Borrower may prepay the loan after 12 months subject to a foreclosure charge
+of 4% of the outstanding principal.
+
+7. RECALL
+The Lender may recall the entire outstanding amount at any time without
+assigning any reason, and the Borrower shall pay the same within 7 days of such
+demand.
+
+8. SECURITY
+The Borrower undertakes to provide a post dated cheque for each instalment and
+shall indemnify the Lender against all costs of recovery.
+
+9. STATEMENTS
+Any statement of account issued by the Lender shall be final and binding on the
+Borrower.
+
+{banner}
+"""
+
+HOSPITAL = """DEMO MULTISPECIALITY HOSPITAL (FICTIONAL)
+Example Junction, Thrissur, Kerala
+
+{banner}
+
+INPATIENT BILL
+
+Patient Name   : Mr. Joshy Mathew (fictional)
+UHID           : DEMO-554120
+IP No          : IP/2025/00871
+Date of Admission : 3rd June 2025
+Date of Discharge : 8th June 2025
+Bill Date      : 8th June 2025
+
+CHARGE SUMMARY
+
+Room rent (5 days)                      Rs. 17,500.00
+Consultation charges                    Rs.  6,000.00
+Nursing charges                         Rs.  4,500.00
+Investigation charges (laboratory)      Rs. 11,250.00
+Pharmacy                                Rs. 14,870.00
+Surgery charges                         Rs. 32,000.00
+Consumables                             Rs.  3,980.00
+
+Gross amount                            Rs. 90,100.00
+Insurance approved (Demo Insurance)     Rs. 60,000.00
+Total amount payable by patient         Rs. 30,100.00
+
+PAYMENT TERMS
+The total payable amount is due on or before 18th June 2025. If the amount is
+not paid by the due date, a late payment charge of 1.5% per month shall be
+added to the outstanding balance.
+
+Mode of payment: cash, card or UPI at the billing counter. Insurance claim
+queries must be submitted within 15 days of discharge, failing which the claim
+may be treated as closed.
+
+{banner}
+"""
+
+NOTICE = """OFFICE OF THE DEMO MUNICIPAL CORPORATION (FICTIONAL)
+Revenue Department, Example Nagar
+
+{banner}
+
+PUBLIC NOTICE - PROPERTY TAX DEMAND
+
+Reference No : DMC/REV/2025/4471
+Notice Date  : 20th June 2025
+
+To,
+Smt. Leela Krishnan (fictional)
+Door No. 18/221, Example Nagar Ward 9
+
+Subject: Demand notice for unpaid property tax for assessment year 2024-25.
+
+1. As per the records of this office, property tax dues of Rs. 24,780/- in
+respect of the above property remain unpaid for the assessment year 2024-25.
+
+2. You are hereby directed to remit the said amount on or before 15th July 2025
+at the Revenue Department counter or through the official payment portal.
+
+3. Failing which, interest at the rate of 12% per annum shall be levied from the
+original due date and recovery proceedings shall be initiated under the
+applicable municipal rules without further notice.
+
+4. If you dispute this demand, you are required to submit a written objection
+with supporting documents within 15 days of receipt of this notice and appear
+before the competent authority on 10th July 2025 at 11.00 AM.
+
+5. Any decision of the competent authority in this matter shall be final.
+
+Assistant Revenue Officer
+Demo Municipal Corporation
+
+{banner}
+"""
+
+DOCUMENTS = {
+    "demo_rental_agreement.pdf": ("Synthetic Rental Agreement (Demo)", RENTAL),
+    "demo_loan_agreement.pdf": ("Synthetic Loan Agreement (Demo)", LOAN),
+    "demo_hospital_bill.pdf": ("Synthetic Hospital Bill (Demo)", HOSPITAL),
+    "demo_government_notice.pdf": ("Synthetic Government Notice (Demo)", NOTICE),
+}
+
+PAGE_WIDTH, PAGE_HEIGHT = fitz.paper_size("a4")
+MARGIN = 56
+FONT = "helv"
+FONT_SIZE = 10.5
+LINE_HEIGHT = 14.5
+
+
+def write_pdf(path: Path, title: str, body: str) -> None:
+    doc = fitz.open()
+    doc.set_metadata({"title": title, "author": "PlainSpeak demo generator"})
+    lines = body.format(banner=BANNER).split("\n")
+    page = doc.new_page(width=PAGE_WIDTH, height=PAGE_HEIGHT)
+    y = MARGIN
+    for line in lines:
+        if y > PAGE_HEIGHT - MARGIN:
+            page = doc.new_page(width=PAGE_WIDTH, height=PAGE_HEIGHT)
+            y = MARGIN
+        if line.strip():
+            page.insert_text(
+                (MARGIN, y), line, fontname=FONT, fontsize=FONT_SIZE, color=(0.1, 0.1, 0.15)
+            )
+        y += LINE_HEIGHT
+    doc.save(str(path))
+    doc.close()
+
+
+def main() -> int:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    for filename, (title, body) in DOCUMENTS.items():
+        target = OUT_DIR / filename
+        write_pdf(target, title, body)
+        print("wrote %s" % target)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
