@@ -1,0 +1,359 @@
+<title>Doc Decode Customer Journey</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: single reading column; the 8-stage map is a wide grid that scrolls sideways on its own; stage-by-stage detail follows as stacked sections. */
+:root{
+  --bg:#f7f7fb; --surface:#ffffff; --line:#e4e4ec; --ink:#18181b; --soft:#5a5a66; --faint:#94949f;
+  --brand:#4338ca; --brand-soft:#eeedfd; --brand-ink:#3730a3;
+  --good:#15803d; --good-soft:#eef9f1; --warn:#a16207; --warn-soft:#fcf7e8; --crit:#b42318; --crit-soft:#fcf1f0;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"Inter",ui-sans-serif,system-ui,"Noto Sans Malayalam",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111117; --surface:#1a1a22; --line:#2c2c38; --ink:#ececf2; --soft:#a5a5b3; --faint:#6e6e7c;
+  --brand:#8b8cf5; --brand-soft:#23234a; --brand-ink:#b8b9ff;
+  --good:#4ade80; --good-soft:#14281c; --warn:#facc15; --warn-soft:#2a2410; --crit:#f87171; --crit-soft:#2e1616; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111117; --surface:#1a1a22; --line:#2c2c38; --ink:#ececf2; --soft:#a5a5b3; --faint:#6e6e7c;
+  --brand:#8b8cf5; --brand-soft:#23234a; --brand-ink:#b8b9ff;
+  --good:#4ade80; --good-soft:#14281c; --warn:#facc15; --warn-soft:#2a2410; --crit:#f87171; --crit-soft:#2e1616; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6}
+.wrap{max-width:1120px;margin:0 auto;padding-block:40px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:56px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(30px,4.4vw,44px);line-height:1.08}
+h2{font-size:26px;line-height:1.2}
+h3{font-size:17px}
+p{margin:0}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--brand);font-weight:600}
+.lede{color:var(--soft);max-width:68ch;font-size:16px}
+.muted{color:var(--soft)}
+section{display:grid;gap:18px}
+.sechead{display:grid;gap:6px}
+header{display:grid;gap:12px}
+
+.howto{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.howto div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px}
+.howto b{display:block;font-family:var(--display);font-size:14px;margin-bottom:2px}
+
+.personas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.persona{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:10px;align-content:start}
+.ph{display:flex;gap:12px;align-items:center}
+.avatar{flex:none;width:46px;height:46px;border-radius:50%;background:var(--brand-soft);color:var(--brand-ink);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:18px}
+.ph p{font-size:13px;color:var(--soft)}
+dl{margin:0;display:grid;grid-template-columns:96px 1fr;gap:6px 12px;font-size:13.5px}
+dt{color:var(--faint);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;padding-top:2px}
+dd{margin:0}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.map{display:grid;grid-template-columns:118px repeat(8,minmax(158px,1fr));min-width:1400px}
+.map > div{padding:12px;border-bottom:1px solid var(--line);font-size:13px;line-height:1.5}
+.map > div:not(.rl){border-left:1px solid var(--line)}
+.rl{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;background:var(--bg);position:sticky;left:0;z-index:1}
+.st{background:var(--brand-soft)}
+.st small{display:block;font-size:11px;color:var(--brand);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.st b{display:block;font-family:var(--display);font-size:15px;color:var(--brand-ink)}
+.feel{font-style:italic;color:var(--soft)}
+.pain{color:var(--crit)}
+.fix{color:var(--good)}
+.tp{color:var(--brand-ink)}
+.map .end{border-bottom:0}
+.curve{grid-column:2 / -1;padding:0!important}
+.curve svg{display:block;width:100%;height:110px}
+.mood{display:flex;justify-content:space-between;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:var(--soft)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+
+.stages{display:grid;gap:14px}
+.stage{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:grid;gap:14px}
+.stage-h{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
+.n{font-family:var(--display);font-weight:700;color:var(--brand);font-size:15px;font-variant-numeric:tabular-nums}
+.score{margin-left:auto;font-size:12.5px;color:var(--soft);display:flex;align-items:center;gap:6px}
+.dots{display:inline-flex;gap:3px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--line)}.dots i.on{background:var(--brand)}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.cols > div{min-width:0}
+.cols h4{margin:0 0 4px;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.cols ul{margin:0;padding-left:18px;font-size:13.5px;display:grid;gap:3px}
+.quote{border-left:3px solid var(--brand);padding:2px 0 2px 12px;font-style:italic;color:var(--soft);font-size:14px}
+.box-pain{background:var(--crit-soft);border-radius:8px;padding:10px 12px}
+.box-pain h4{color:var(--crit)}
+.box-fix{background:var(--good-soft);border-radius:8px;padding:10px 12px}
+.box-fix h4{color:var(--good)}
+
+.mot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mot div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:6px;align-content:start}
+.mot span{font-size:11.5px;color:var(--brand);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.mot p{font-size:13.5px;color:var(--soft)}
+
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:640px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px}
+.p-hi{background:var(--crit-soft);color:var(--crit)} .p-md{background:var(--warn-soft);color:var(--warn)} .p-lo{background:var(--good-soft);color:var(--good)}
+footer{font-size:13px;color:var(--faint)}
+@page{size:A3 landscape;margin:12mm}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:var(--bg)}
+  .wrap{max-width:none;padding-block:0;gap:32px}
+  .scroll{overflow:visible}
+  .rl{position:static}
+  .stage,.persona,.mot div,tr,.howto div{break-inside:avoid}
+  .sechead{break-after:avoid}
+  .howto{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .personas{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .cols,.mot{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .score{margin-left:auto!important}
+}
+@media (max-width:820px){.howto{grid-template-columns:repeat(2,minmax(0,1fr))}.personas,.cols,.mot{grid-template-columns:1fr}.score{margin-left:0}}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Leadathon · Doc Decode · File 1 of 2</span>
+    <h1>Customer journey map</h1>
+    <p class="lede">This map follows a real kind of user from the moment a confusing document lands in their hands to the moment they act on it with confidence. It shows what they do, what they think and feel, where they get stuck, and how Doc Decode helps at each step.</p>
+    <div class="howto">
+      <div><b>Stages</b>The 8 columns, in time order, left to right.</div>
+      <div><b>Thinking and feeling</b>What is in the user's head at that moment.</div>
+      <div><b>Pain points</b><span class="pain">In red.</span> What makes this step hard today.</div>
+      <div><b>How we help</b><span class="fix">In green.</span> What Doc Decode does about it.</div>
+    </div>
+  </header>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">Who this is for</span><h2>Two example users</h2>
+      <p class="lede">Both are illustrative personas built from the documents Doc Decode supports, not real customers.</p></div>
+    <div class="personas">
+      <div class="persona">
+        <div class="ph"><div class="avatar">A</div><div><h3>Anu, 34 · Tenant</h3><p>Kochi · Office administrator</p></div></div>
+        <dl>
+          <dt>Document</dt><dd>An 8-page rental agreement she must sign by Friday.</dd>
+          <dt>Goal</dt><dd>Know the rent, deposit, lock-in and notice rules before signing.</dd>
+          <dt>Language</dt><dd>Comfortable in Malayalam. Legal English is hard work.</dd>
+          <dt>Worry</dt><dd>Hidden charges. Losing her deposit. Uploading a private paper online.</dd>
+          <dt>Device</dt><dd>Laptop at home, phone camera for paper copies.</dd>
+        </dl>
+      </div>
+      <div class="persona">
+        <div class="ph"><div class="avatar">R</div><div><h3>Rahul, 41 · Small business owner</h3><p>Thrissur · Runs a supplies firm</p></div></div>
+        <dl>
+          <dt>Documents</dt><dd>Invoices, purchase orders, a GST notice, a government tender.</dd>
+          <dt>Goal</dt><dd>Catch billing mismatches, meet the GST reply date, see if a tender fits.</dd>
+          <dt>Language</dt><dd>English for work, Malayalam with family and staff.</dd>
+          <dt>Worry</dt><dd>Missing a deadline and paying a penalty. No time to read 40 pages.</dd>
+          <dt>Device</dt><dd>Office desktop.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">The full picture</span><h2>Journey at a glance</h2>
+      <p class="muted">Scroll sideways to see all eight stages. The row labels stay pinned on the left.</p></div>
+    <div class="scroll" role="region" aria-label="Journey map, eight stages" tabindex="0">
+      <div class="map">
+        <div class="rl">Stage</div>
+        <div class="st"><small>Before</small><b>1. Trigger</b></div>
+        <div class="st"><small>Before</small><b>2. Discover</b></div>
+        <div class="st"><small>During</small><b>3. Upload</b></div>
+        <div class="st"><small>During</small><b>4. Wait</b></div>
+        <div class="st"><small>During</small><b>5. First look</b></div>
+        <div class="st"><small>During</small><b>6. Dig deeper</b></div>
+        <div class="st"><small>During</small><b>7. Ask</b></div>
+        <div class="st"><small>After</small><b>8. Act</b></div>
+
+        <div class="rl">Goal</div>
+        <div>Understand what this paper means for me.</div>
+        <div>Find a tool I can trust with it.</div>
+        <div>Get the document in without hassle.</div>
+        <div>Know it's working.</div>
+        <div>Get the main picture in seconds.</div>
+        <div>Check the risky parts and the numbers.</div>
+        <div>Clear up my own doubts.</div>
+        <div>Decide, and not miss any date.</div>
+
+        <div class="rl">Doing</div>
+        <div>Receives an agreement, bill, notice or tender. Skims it, gives up.</div>
+        <div>Opens Doc Decode. Tries a demo document to see what it does.</div>
+        <div>Drags in a PDF, or a photo of the paper. Picks English or Malayalam.</div>
+        <div>Watches the step list: checking the file, reading text, finding facts, asking the AI.</div>
+        <div>Reads the Overview: document type, short summary, top risks.</div>
+        <div>Opens Extracted data, Verify, Findings and Deadlines tabs.</div>
+        <div>Types a question in "Ask Doc Decode". Plays it aloud.</div>
+        <div>Ticks deadlines and exports to calendar. Signs, pays, replies or negotiates.</div>
+
+        <div class="rl">Touchpoint</div>
+        <div class="tp">Paper, email, WhatsApp forward</div>
+        <div class="tp">Home page, demo cards, health badge</div>
+        <div class="tp">Upload area, language selector</div>
+        <div class="tp">Processing status card</div>
+        <div class="tp">Overview tab</div>
+        <div class="tp">Data, Verify, Findings, Deadlines, Tender tabs</div>
+        <div class="tp">Ask tab, Read aloud button</div>
+        <div class="tp">Calendar (.ics) export, own calendar app</div>
+
+        <div class="rl">Thinking</div>
+        <div class="feel">"What am I actually agreeing to?"</div>
+        <div class="feel">"Will this send my papers to some server?"</div>
+        <div class="feel">"Will it read a phone photo?"</div>
+        <div class="feel">"Is it stuck?"</div>
+        <div class="feel">"OK, so it's a rental agreement with a ₹50,000 deposit."</div>
+        <div class="feel">"Where exactly does it say that? Page 4. Good."</div>
+        <div class="feel">"Can the owner keep my deposit if I leave early?"</div>
+        <div class="feel">"I won't forget the notice date now."</div>
+
+        <div class="rl">Feeling</div>
+        <div class="curve" aria-label="Emotion curve across the eight stages: anxious at the start, a dip while waiting, then rising steadily to confident at the end">
+          <svg viewBox="0 0 800 110" preserveAspectRatio="none">
+            <line x1="0" y1="55" x2="800" y2="55" stroke="var(--line)" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
+            <path d="M50 82 C80 82,120 66,150 62 S220 58,250 56 S320 84,350 86 S420 46,450 42 S520 34,550 32 S620 24,650 22 S720 12,750 12" fill="none" stroke="var(--brand)" stroke-width="2.5" vector-effect="non-scaling-stroke"/>
+          </svg>
+        </div>
+
+        <div class="rl">Mood</div>
+        <div>😟 Anxious</div><div>🤔 Unsure</div><div>🙂 Hopeful</div><div class="pain">😐 Impatient</div>
+        <div>😌 Relieved</div><div>🧐 Reassured</div><div>🙂 Confident</div><div class="fix">😄 In control</div>
+
+        <div class="rl">Pain point</div>
+        <div class="pain">Dense legal English. Fine print is easy to miss.</div>
+        <div class="pain">Fear of online AI tools. No idea what it can read.</div>
+        <div class="pain">Scans and photos often fail in other tools.</div>
+        <div class="pain">Scanned pages and Malayalam take longer.</div>
+        <div class="pain">AI summaries can invent numbers.</div>
+        <div class="pain">Too much to check by hand.</div>
+        <div class="pain">Hard to find the exact line that answers a question.</div>
+        <div class="pain">Deadlines buried in paragraphs.</div>
+
+        <div class="rl end">How we help</div>
+        <div class="fix end">Supports 12 common document types: rental, loan, hospital bill, GST notice, tender and more.</div>
+        <div class="fix end">Runs fully on the user's computer. Demo documents show results before uploading anything.</div>
+        <div class="fix end">PDF, JPG or PNG up to 15 MB. OCR in English and Malayalam for scanned pages.</div>
+        <div class="fix end">Honest stage list with a seconds counter, no fake progress bar.</div>
+        <div class="fix end">Facts come from fixed rules. The AI only rewrites, never makes up a number.</div>
+        <div class="fix end">Every fact shows its source sentence and page. Wrong type? Change category in one click.</div>
+        <div class="fix end">Answers come with the evidence sentences. Read aloud works offline.</div>
+        <div class="fix end">Tick the dates you care about, export one calendar file.</div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--crit)"></i>Lowest point: stage 4, waiting</span>
+      <span><i style="background:var(--good)"></i>Highest point: stage 8, deadlines saved</span>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">Stage by stage</span><h2>What happens at each stage</h2></div>
+    <div class="stages">
+
+      <article class="stage">
+        <div class="stage-h"><span class="n">01</span><h3>Trigger: a document arrives</h3><span class="score">Mood <span class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></span></span></div>
+        <p class="quote">"The owner sent the agreement on WhatsApp and wants it signed by Friday. It's eight pages of English."</p>
+        <div class="cols">
+          <div><h4>What the user does</h4><ul><li>Gets the document by paper, email or chat.</li><li>Tries to read it and stops after page two.</li><li>Asks a friend or relative, who is also unsure.</li></ul></div>
+          <div class="box-pain"><h4>Pain points</h4><ul><li>Legal and financial language is hard to follow.</li><li>Important terms hide in long paragraphs.</li><li>A lawyer or CA costs money and time.</li></ul></div>
+          <div class="box-fix"><h4>How Doc Decode helps</h4><ul><li>Made for the everyday documents people actually receive.</li><li>Works in English and Malayalam.</li></ul></div>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="stage-h"><span class="n">02</span><h3>Discover: opening Doc Decode</h3><span class="score">Mood <span class="dots"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></span></div>
+        <p class="quote">"It says it runs on my own computer. Let me try the sample rental agreement first."</p>
+        <div class="cols">
+          <div><h4>What the user does</h4><ul><li>Lands on the Home page.</li><li>Reads the privacy note.</li><li>Clicks "Explore Demo" on a sample document.</li><li>Sees the health badge showing whether the local AI is ready.</li></ul></div>
+          <div class="box-pain"><h4>Pain points</h4><ul><li>Distrust of uploading private papers.</li><li>Doesn't know what the tool can or cannot do.</li></ul></div>
+          <div class="box-fix"><h4>How Doc Decode helps</h4><ul><li>No cloud, no account, no database.</li><li>Demo documents (rental, loan, hospital bill, government notice) show real results.</li><li>Health badge is honest about AI status.</li></ul></div>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="stage-h"><span class="n">03</span><h3>Upload: giving it the document</h3><span class="score">Mood <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></span></span></div>
+        <p class="quote">"I'll just take a photo of the paper copy. Hope it reads it."</p>
+        <div class="cols">
+          <div><h4>What the user does</h4><ul><li>Drags and drops a file, or picks one.</li><li>Chooses the language for explanations.</li></ul></div>
+          <div class="box-pain"><h4>Pain points</h4><ul><li>Not sure which file types work.</li><li>Large or odd files get rejected without a reason in other tools.</li></ul></div>
+          <div class="box-fix"><h4>How Doc Decode helps</h4><ul><li>Accepts PDF, JPG and PNG up to 15 MB and 40 pages.</li><li>If a file is rejected, the message says why and what to try.</li></ul></div>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="stage-h"><span class="n">04</span><h3>Wait: the analysis runs</h3><span class="score">Mood <span class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></span></span></div>
+        <p class="quote">"It's on 'Asking the local AI model'. Twelve seconds so far."</p>
+        <div class="cols">
+          <div><h4>What the user does</h4><ul><li>Watches four steps tick off: Checking the file, Reading the text, Finding facts and clauses, Asking the local AI model.</li></ul></div>
+          <div class="box-pain"><h4>Pain points</h4><ul><li>Scanned pages and Malayalam explanations take longer.</li><li>Waiting with no feedback feels broken.</li></ul></div>
+          <div class="box-fix"><h4>How Doc Decode helps</h4><ul><li>Step list and seconds counter show it is working.</li><li>Rules-only results arrive in about 2 seconds.</li><li>If the AI is off, the AI step is simply not shown.</li></ul></div>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="stage-h"><span class="n">05</span><h3>First look: the Overview</h3><span class="score">Mood <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></span></div>
+        <p class="quote">"Rental agreement. Rent ₹18,000, deposit ₹50,000, 11-month lock-in. Two things flagged red."</p>
+        <div class="cols">
+          <div><h4>What the user does</h4><ul><li>Sees the document type and how sure the app is.</li><li>Reads the plain-language summary.</li><li>Looks at the top flagged clauses first.</li></ul></div>
+          <div class="box-pain"><h4>Pain points</h4><ul><li>Fear that an AI summary is guessing.</li><li>Too many warnings would feel like noise.</li></ul></div>
+          <div class="box-fix"><h4>How Doc Decode helps</h4><ul><li>If unsure of the type, it says "uncertain" instead of guessing.</li><li>Clauses are ranked so the most important come first.</li><li>Each explanation says whether it came from the AI or the rules.</li></ul></div>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="stage-h"><span class="n">06</span><h3>Dig deeper: checking the details</h3><span class="score">Mood <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span></span></div>
+        <p class="quote">"The late fee is 2% per day. That's on page 5, here's the exact sentence."</p>
+        <div class="cols">
+          <div><h4>What the user does</h4><ul><li><b>Extracted data:</b> amounts, dates, rates, line items.</li><li><b>Verify:</b> check totals add up; compare an invoice with a purchase order.</li><li><b>Findings &amp; actions:</b> risky clauses with what to do.</li><li><b>Deadlines:</b> countdown to each date.</li><li><b>Tender checklist:</b> requirements to tick against own papers.</li></ul></div>
+          <div class="box-pain"><h4>Pain points</h4><ul><li>Hard to know whether to trust each number.</li><li>Comparing two documents by hand is slow.</li></ul></div>
+          <div class="box-fix"><h4>How Doc Decode helps</h4><ul><li>Every value links to its sentence and page.</li><li>Missing values say "Not found", never a guess.</li><li>Never says "you are eligible"; it lists requirements to check.</li></ul></div>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="stage-h"><span class="n">07</span><h3>Ask: getting answers to own questions</h3><span class="score">Mood <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></span></div>
+        <p class="quote">"Can the owner keep my deposit if I leave after six months?"</p>
+        <div class="cols">
+          <div><h4>What the user does</h4><ul><li>Types a question in "Ask Doc Decode".</li><li>Reads the answer and the evidence sentences.</li><li>Switches to Malayalam and plays it aloud for a parent.</li></ul></div>
+          <div class="box-pain"><h4>Pain points</h4><ul><li>Generic chatbots answer from outside the document.</li><li>Reading is tiring for some family members.</li></ul></div>
+          <div class="box-fix"><h4>How Doc Decode helps</h4><ul><li>Answers only from this document, with proof shown.</li><li>Read aloud uses offline voices, including Malayalam via eSpeak NG.</li></ul></div>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="stage-h"><span class="n">08</span><h3>Act: deciding and following through</h3><span class="score">Mood <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span></span></div>
+        <p class="quote">"I asked the owner to change the lock-in to 6 months. The notice date is in my calendar."</p>
+        <div class="cols">
+          <div><h4>What the user does</h4><ul><li>Ticks the deadlines that matter.</li><li>Exports them as one calendar file.</li><li>Signs, pays, replies to the notice, or asks for changes.</li><li>Comes back for the next document.</li></ul></div>
+          <div class="box-pain"><h4>Pain points</h4><ul><li>Dates get forgotten after the document is filed away.</li></ul></div>
+          <div class="box-fix"><h4>How Doc Decode helps</h4><ul><li>Only dates the user chose go to the calendar.</li><li>Dates that couldn't be confirmed are never shown as upcoming or overdue.</li></ul></div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">Make or break</span><h2>Moments that decide trust</h2></div>
+    <div class="mot">
+      <div><span>Stage 2</span><h3>"Is my data safe?"</h3><p>If users doubt privacy, they never upload. Local-only processing and demo documents answer this before they commit.</p></div>
+      <div><span>Stage 5</span><h3>"Are these numbers real?"</h3><p>One invented figure destroys trust. Rules pick every number, and each one shows its source line.</p></div>
+      <div><span>Stage 8</span><h3>"Did it help me act?"</h3><p>The journey succeeds only if the user leaves with a decision and the dates saved.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">Next steps</span><h2>Ideas to improve the journey</h2></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Stage</th><th>Problem</th><th>Idea</th><th>Impact</th></tr></thead>
+        <tbody>
+          <tr><td>4. Wait</td><td>Long waits for scans and Malayalam</td><td>Show rule-based results first, then add AI explanations when ready</td><td><span class="pill p-hi">High</span></td></tr>
+          <tr><td>3. Upload</td><td>Handwritten notes don't read well</td><td>Warn before upload when an image looks handwritten</td><td><span class="pill p-md">Medium</span></td></tr>
+          <tr><td>8. Act</td><td>No reminder once the tab is closed</td><td>Add a printable one-page summary with dates and key terms</td><td><span class="pill p-md">Medium</span></td></tr>
+          <tr><td>2. Discover</td><td>First-time users don't know the 12 types</td><td>Show supported document types as chips on the Home page</td><td><span class="pill p-lo">Low</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>Doc Decode · Leadathon · Customer journey map. See File 2 for the step-by-step user workflow.</footer>
+</div>

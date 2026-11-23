@@ -1,0 +1,298 @@
+<title>Doc Decode User Workflow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: reading column. A compact one-line flow at the top, then numbered steps with "you / app" split, decision boxes inline, then tab sub-flows and a what-if table. */
+:root{
+  --bg:#f7f7fb; --surface:#ffffff; --line:#e4e4ec; --ink:#18181b; --soft:#5a5a66; --faint:#94949f;
+  --brand:#4338ca; --brand-soft:#eeedfd; --brand-ink:#3730a3;
+  --good:#15803d; --good-soft:#eef9f1; --warn:#a16207; --warn-soft:#fcf7e8; --crit:#b42318; --crit-soft:#fcf1f0;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"Inter",ui-sans-serif,system-ui,"Noto Sans Malayalam",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111117; --surface:#1a1a22; --line:#2c2c38; --ink:#ececf2; --soft:#a5a5b3; --faint:#6e6e7c;
+  --brand:#8b8cf5; --brand-soft:#23234a; --brand-ink:#b8b9ff;
+  --good:#4ade80; --good-soft:#14281c; --warn:#facc15; --warn-soft:#2a2410; --crit:#f87171; --crit-soft:#2e1616; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111117; --surface:#1a1a22; --line:#2c2c38; --ink:#ececf2; --soft:#a5a5b3; --faint:#6e6e7c;
+  --brand:#8b8cf5; --brand-soft:#23234a; --brand-ink:#b8b9ff;
+  --good:#4ade80; --good-soft:#14281c; --warn:#facc15; --warn-soft:#2a2410; --crit:#f87171; --crit-soft:#2e1616; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6}
+.wrap{max-width:1000px;margin:0 auto;padding-block:40px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:56px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(30px,4.4vw,44px);line-height:1.08}
+h2{font-size:26px;line-height:1.2}
+h3{font-size:17px}
+p{margin:0}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--brand);font-weight:600}
+.lede{color:var(--soft);max-width:68ch;font-size:16px}
+.muted{color:var(--soft)}
+section{display:grid;gap:18px}
+.sechead{display:grid;gap:6px}
+header{display:grid;gap:12px}
+
+.key{display:flex;flex-wrap:wrap;gap:10px 20px;font-size:13.5px;color:var(--soft)}
+.tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.t-you{background:var(--brand);color:var(--surface)}
+.t-app{background:var(--surface);color:var(--brand-ink);border:1px solid var(--brand)}
+.t-ai{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn)}
+.t-dec{background:var(--bg);color:var(--soft);border:1px dashed var(--faint)}
+
+.strip-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:18px}
+.strip{display:flex;align-items:center;gap:0;min-width:900px}
+.chip{flex:1;text-align:center;font-size:13px;font-weight:500;padding:10px 6px;border-radius:8px;background:var(--brand-soft);color:var(--brand-ink);line-height:1.3}
+.chip small{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;opacity:.8;margin-bottom:2px}
+.chip.app{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.chip.done{background:var(--good-soft);color:var(--good)}
+.ar{flex:none;width:22px;text-align:center;color:var(--faint);font-size:14px}
+
+.steps{display:grid;gap:0}
+.step{display:grid;grid-template-columns:44px 1fr;gap:16px}
+.rail{display:flex;flex-direction:column;align-items:center}
+.num{width:36px;height:36px;border-radius:50%;background:var(--brand);color:var(--surface);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;flex:none}
+.num.app{background:var(--surface);color:var(--brand);border:2px solid var(--brand)}
+.num.end{background:var(--good)}
+.line{flex:1;width:2px;background:var(--line);min-height:16px}
+.body{padding-bottom:28px;display:grid;gap:10px;min-width:0}
+.body .h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.split > div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.split h4{margin:0 0 4px;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600}
+.split ul{margin:0;padding-left:18px;font-size:13.5px;display:grid;gap:3px}
+.screen{font-size:13px;color:var(--soft)}
+.screen b{color:var(--ink);font-weight:600}
+.decision{border:1.5px dashed var(--warn);background:var(--warn-soft);border-radius:10px;padding:12px 14px;display:grid;gap:8px}
+.decision .q{font-weight:600;font-size:14px}
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:13.5px}
+.opts div{background:var(--surface);border-radius:8px;padding:8px 10px;border:1px solid var(--line)}
+.opts b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.yes b{color:var(--good)} .no b{color:var(--crit)}
+.loopnote{font-size:13.5px;background:var(--brand-soft);color:var(--brand-ink);border-radius:8px;padding:8px 12px}
+
+.tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tabcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:8px;align-content:start}
+.tabcard .for{font-size:12px;color:var(--faint)}
+.tabcard ol{margin:0;padding-left:20px;font-size:13.5px;display:grid;gap:3px}
+.tabcard .out{font-size:13px;color:var(--good)}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:680px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600}
+
+.lanes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.lane{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:6px;align-content:start}
+.lane ul{margin:0;padding-left:18px;font-size:13px;display:grid;gap:3px}
+footer{font-size:13px;color:var(--faint)}
+@page{size:A4 portrait;margin:12mm}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:var(--bg);font-size:13px}
+  .wrap{max-width:none;padding-block:0;gap:28px}
+  .strip-wrap,.scroll{overflow:visible}
+  .strip{min-width:0}
+  .chip{font-size:11px;padding:8px 3px}
+  table{min-width:0}
+  .step,.tabcard,.decision,tr,.lane{break-inside:avoid}
+  .sechead{break-after:avoid}
+  .split,.opts,.tabs{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .lanes{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+}
+@media (max-width:760px){.split,.opts,.tabs{grid-template-columns:1fr}.lanes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:440px){.lanes{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Leadathon · Doc Decode · File 2 of 2</span>
+    <h1>User workflow</h1>
+    <p class="lede">The exact path a user takes through Doc Decode, step by step: what they click, what the app does in the background, the choices along the way, and what happens when something goes wrong.</p>
+    <div class="key">
+      <span><span class="tag t-you">You</span> something the user does</span>
+      <span><span class="tag t-app">App</span> the app does it automatically</span>
+      <span><span class="tag t-ai">Local AI</span> uses the AI on the user's computer</span>
+      <span><span class="tag t-dec">Decision</span> the path splits here</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">In one line</span><h2>The whole flow</h2></div>
+    <div class="strip-wrap" role="region" aria-label="Workflow summary" tabindex="0">
+      <div class="strip">
+        <div class="chip"><small>You</small>Open app</div><span class="ar">→</span>
+        <div class="chip"><small>You</small>Upload</div><span class="ar">→</span>
+        <div class="chip app"><small>App</small>Check file</div><span class="ar">→</span>
+        <div class="chip app"><small>App</small>Read text</div><span class="ar">→</span>
+        <div class="chip app"><small>App</small>Find facts</div><span class="ar">→</span>
+        <div class="chip app"><small>AI</small>Explain</div><span class="ar">→</span>
+        <div class="chip"><small>You</small>Review tabs</div><span class="ar">→</span>
+        <div class="chip"><small>You</small>Ask / listen</div><span class="ar">→</span>
+        <div class="chip done"><small>You</small>Save dates, act</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">Step by step</span><h2>The main path</h2></div>
+    <div class="steps">
+
+      <div class="step"><div class="rail"><span class="num">1</span><span class="line"></span></div>
+        <div class="body">
+          <div class="h"><h3>Open Doc Decode</h3><span class="tag t-you">You</span></div>
+          <p class="screen">Screen: <b>Home page</b> at localhost:5173</p>
+          <div class="split">
+            <div><h4>You</h4><ul><li>Open the app in the browser.</li><li>Choose English or Malayalam at the top.</li><li>Optional: click <b>Explore Demo</b> to try a sample document.</li></ul></div>
+            <div><h4>App</h4><ul><li>Checks if the local AI is running.</li><li>Shows a health badge: ready, or rules only.</li><li>Lists the demo documents.</li></ul></div>
+          </div>
+        </div></div>
+
+      <div class="step"><div class="rail"><span class="num">2</span><span class="line"></span></div>
+        <div class="body">
+          <div class="h"><h3>Upload the document</h3><span class="tag t-you">You</span></div>
+          <p class="screen">Screen: <b>Upload area</b> on the Home page</p>
+          <div class="split">
+            <div><h4>You</h4><ul><li>Drag and drop a file, or click to choose one.</li><li>Allowed: PDF, JPG, PNG.</li></ul></div>
+            <div><h4>App</h4><ul><li>Sends the file to the local backend.</li><li>Shows the "Working on your document" card.</li></ul></div>
+          </div>
+        </div></div>
+
+      <div class="step"><div class="rail"><span class="num app">3</span><span class="line"></span></div>
+        <div class="body">
+          <div class="h"><h3>Check the file</h3><span class="tag t-app">App</span></div>
+          <p class="muted">Status shown: "Checking the file"</p>
+          <div class="decision">
+            <span class="q">Is the file safe and within limits? (type, real content, max 15 MB, max 40 pages)</span>
+            <div class="opts"><div class="yes"><b>Yes</b>Continue to step 4.</div><div class="no"><b>No</b>Show a clear message, for example "Please upload a PDF, JPG or PNG under 15 MB". Back to step 2.</div></div>
+          </div>
+        </div></div>
+
+      <div class="step"><div class="rail"><span class="num app">4</span><span class="line"></span></div>
+        <div class="body">
+          <div class="h"><h3>Read the text</h3><span class="tag t-app">App</span></div>
+          <p class="muted">Status shown: "Reading the text"</p>
+          <div class="decision">
+            <span class="q">Does the page have real text, or is it a scan or photo?</span>
+            <div class="opts"><div class="yes"><b>Has text</b>Read it directly. Fast.</div><div class="no"><b>Scan or photo</b>Run OCR (English + Malayalam) on that page only. Slower.</div></div>
+          </div>
+          <p class="muted">If no text can be read at all, the app says the document is unreadable and asks for a clearer copy.</p>
+        </div></div>
+
+      <div class="step"><div class="rail"><span class="num app">5</span><span class="line"></span></div>
+        <div class="body">
+          <div class="h"><h3>Find what matters</h3><span class="tag t-app">App</span></div>
+          <p class="muted">Status shown: "Finding facts and clauses". All done by fixed rules, so the same document always gives the same result.</p>
+          <div class="split">
+            <div><h4>Works out</h4><ul><li><b>Document type</b> from 12 types, or "uncertain".</li><li><b>Key facts</b>: rent, deposit, loan, interest, EMI, totals.</li><li><b>Deadlines</b>: due dates and notice periods.</li></ul></div>
+            <div><h4>Also flags</h4><ul><li><b>Risky clauses</b> in 12 categories: auto-renewal, penalties, late fees, lock-in, one-sided terms and more.</li><li>Each item keeps its sentence and page number.</li></ul></div>
+          </div>
+        </div></div>
+
+      <div class="step"><div class="rail"><span class="num app">6</span><span class="line"></span></div>
+        <div class="body">
+          <div class="h"><h3>Explain in plain words</h3><span class="tag t-ai">Local AI</span></div>
+          <p class="muted">Status shown: "Asking the local AI model"</p>
+          <div class="decision">
+            <span class="q">Is the local AI running?</span>
+            <div class="opts"><div class="yes"><b>Yes</b>Send the top flagged clauses (up to 6, or 3 in Malayalam) in one request. Get simple rewrites back.</div><div class="no"><b>No</b>Skip this step. Everything else still shows, with a note that plain-language explanations are missing.</div></div>
+          </div>
+          <p class="muted">The AI only rewrites. It never picks what is important and never gives a number.</p>
+        </div></div>
+
+      <div class="step"><div class="rail"><span class="num">7</span><span class="line"></span></div>
+        <div class="body">
+          <div class="h"><h3>Review the results</h3><span class="tag t-you">You</span></div>
+          <p class="screen">Screen: <b>Analysis workspace</b> with tabs (details in the next section)</p>
+          <div class="split">
+            <div><h4>You</h4><ul><li>Start on <b>Overview</b>: type, summary, top risks.</li><li>Open other tabs as needed.</li><li>Check each fact against its source sentence and page.</li></ul></div>
+            <div><h4>If the type is wrong</h4><ul><li>Use <b>Change category</b> to pick the right one.</li><li>The app re-runs the rules on the same text. No re-upload.</li></ul></div>
+          </div>
+        </div></div>
+
+      <div class="step"><div class="rail"><span class="num">8</span><span class="line"></span></div>
+        <div class="body">
+          <div class="h"><h3>Ask questions or listen</h3><span class="tag t-you">You</span><span class="tag t-ai">Local AI</span></div>
+          <p class="screen">Screen: <b>Ask Doc Decode</b> tab, <b>Read aloud</b> button</p>
+          <div class="split">
+            <div><h4>You</h4><ul><li>Type a question, for example "Can the deposit be kept if I leave early?"</li><li>Press Read aloud to hear an explanation.</li></ul></div>
+            <div><h4>App</h4><ul><li>Finds the most relevant sentences in the document.</li><li>The AI answers from those only and shows them as evidence.</li><li>Speaks using the browser voice, or the offline Malayalam voice.</li></ul></div>
+          </div>
+          <p class="loopnote"><b>Repeat steps 7 and 8</b> until every doubt is cleared.</p>
+        </div></div>
+
+      <div class="step"><div class="rail"><span class="num end">9</span></div>
+        <div class="body">
+          <div class="h"><h3>Save deadlines and decide</h3><span class="tag t-you">You</span></div>
+          <p class="screen">Screen: <b>Deadlines</b> tab</p>
+          <div class="split">
+            <div><h4>You</h4><ul><li>Tick the dates you care about.</li><li>Click export to get one calendar file (.ics).</li><li>Open it in Google, Outlook or phone calendar.</li><li>Then sign, pay, reply or negotiate.</li></ul></div>
+            <div><h4>App</h4><ul><li>Builds the calendar file from ticked dates only.</li><li>Keeps nothing afterwards. The document is gone when the page is closed.</li></ul></div>
+          </div>
+        </div></div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">Inside step 7</span><h2>What each tab is for</h2>
+      <p class="muted">One document, several views. A tab with a number shows how many items it found.</p></div>
+    <div class="tabs">
+      <div class="tabcard"><h3>Overview</h3><span class="for">Everyone · start here</span>
+        <ol><li>See the document type and how sure the app is.</li><li>Read the plain-language summary.</li><li>Check the top flagged risks.</li></ol>
+        <p class="out">You get: the main picture in under a minute.</p></div>
+      <div class="tabcard"><h3>Extracted data</h3><span class="for">Bills, loans, invoices</span>
+        <ol><li>Scan the list of amounts, rates and dates.</li><li>View line items where present.</li><li>See the sentence and page each value came from.</li></ol>
+        <p class="out">You get: every number, with proof.</p></div>
+      <div class="tabcard"><h3>Verify</h3><span class="for">Invoices, bills</span>
+        <ol><li>See whether totals and line items add up.</li><li>Upload a second document, such as a purchase order, to compare.</li><li>Review the matches and mismatches.</li></ol>
+        <p class="out">You get: billing errors caught before paying.</p></div>
+      <div class="tabcard"><h3>Deadlines</h3><span class="for">Everyone</span>
+        <ol><li>See each date with a countdown.</li><li>Dates the app couldn't confirm are kept apart.</li><li>Tick the ones to save and export.</li></ol>
+        <p class="out">You get: no missed due dates.</p></div>
+      <div class="tabcard"><h3>Findings &amp; actions</h3><span class="for">Agreements, notices</span>
+        <ol><li>Read each flagged clause in original wording.</li><li>Read its simple explanation and what to do.</li><li>Note whether it came from the AI or the rules.</li></ol>
+        <p class="out">You get: what to question before signing.</p></div>
+      <div class="tabcard"><h3>Tender checklist</h3><span class="for">Tender notices</span>
+        <ol><li>See every requirement the tender asks for.</li><li>Enter your business details.</li><li>Tick each item against your own papers.</li></ol>
+        <p class="out">You get: a checklist. The app never decides eligibility.</p></div>
+      <div class="tabcard"><h3>Ask Doc Decode</h3><span class="for">Everyone</span>
+        <ol><li>Type a question in your own words.</li><li>Read the answer and the evidence sentences.</li><li>Ask a follow-up.</li></ol>
+        <p class="out">You get: answers taken only from this document.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">When things don't go to plan</span><h2>What if…</h2></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Situation</th><th>What the user sees</th><th>What to do</th></tr></thead>
+        <tbody>
+          <tr><td>Wrong file type (e.g. .docx)</td><td>Upload rejected with the reason</td><td>Save as PDF or take a photo, then upload again</td></tr>
+          <tr><td>File over 15 MB or 40 pages</td><td>Upload rejected with the limit</td><td>Upload only the pages that matter</td></tr>
+          <tr><td>Scanned or blurry photo</td><td>Slower reading, some facts "Not found"</td><td>Retake the photo in good light, flat and straight</td></tr>
+          <tr><td>Handwritten note</td><td>Little or wrong text</td><td>Not supported reliably. Use a typed copy</td></tr>
+          <tr><td>Local AI not running</td><td>Health badge shows rules only; no plain-language rewrite</td><td>Results still usable. Start Ollama to get explanations</td></tr>
+          <tr><td>Document type unclear</td><td>"Document type uncertain"</td><td>Pick the right type with Change category</td></tr>
+          <tr><td>No Malayalam voice installed</td><td>Read aloud is disabled for Malayalam, with a note</td><td>Install eSpeak NG, or read the text</td></tr>
+          <tr><td>A fact isn't in the document</td><td>"Not found", never a guess</td><td>Check the original or ask in the Ask tab</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><span class="eyebrow">Who does what</span><h2>Behind the scenes</h2>
+      <p class="muted">Everything below runs on the user's own computer.</p></div>
+    <div class="lanes">
+      <div class="lane"><span class="tag t-you">User</span><ul><li>Chooses language</li><li>Uploads</li><li>Reviews tabs</li><li>Asks questions</li><li>Exports dates</li></ul></div>
+      <div class="lane"><span class="tag t-app">Screen</span><ul><li>Shows progress</li><li>Shows tabs and cards</li><li>Reads aloud</li><li>Shows source and page</li></ul></div>
+      <div class="lane"><span class="tag t-app">Rules engine</span><ul><li>Checks the file</li><li>Reads text and OCR</li><li>Finds type, facts, clauses, dates</li><li>Builds the calendar file</li></ul></div>
+      <div class="lane"><span class="tag t-ai">Local AI</span><ul><li>Rewrites clauses simply</li><li>Answers questions from evidence</li><li>Optional: app works without it</li></ul></div>
+    </div>
+  </section>
+
+  <footer>Doc Decode · Leadathon · User workflow. See File 1 for the customer journey map.</footer>
+</div>

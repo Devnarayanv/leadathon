@@ -1,0 +1,548 @@
+<title>How Doc Decode Works</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, numbered chapters (the order is the presentation order), diagrams as HTML boxes, reference tables scroll inside their own box. */
+:root{
+  --bg:#f7f7fb; --surface:#ffffff; --line:#e4e4ec; --ink:#18181b; --soft:#5a5a66; --faint:#94949f;
+  --brand:#4338ca; --brand-soft:#eeedfd; --brand-ink:#3730a3;
+  --good:#15803d; --good-soft:#eef9f1; --warn:#a16207; --warn-soft:#fcf7e8; --crit:#b42318; --crit-soft:#fcf1f0;
+  --display:"Space Grotesk",ui-sans-serif,system-ui,sans-serif;
+  --body:"Inter",ui-sans-serif,system-ui,"Noto Sans Malayalam",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111117; --surface:#1a1a22; --line:#2c2c38; --ink:#ececf2; --soft:#a5a5b3; --faint:#6e6e7c;
+  --brand:#8b8cf5; --brand-soft:#23234a; --brand-ink:#b8b9ff;
+  --good:#4ade80; --good-soft:#14281c; --warn:#facc15; --warn-soft:#2a2410; --crit:#f87171; --crit-soft:#2e1616; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111117; --surface:#1a1a22; --line:#2c2c38; --ink:#ececf2; --soft:#a5a5b3; --faint:#6e6e7c;
+  --brand:#8b8cf5; --brand-soft:#23234a; --brand-ink:#b8b9ff;
+  --good:#4ade80; --good-soft:#14281c; --warn:#facc15; --warn-soft:#2a2410; --crit:#f87171; --crit-soft:#2e1616; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.62}
+.wrap{max-width:960px;margin:0 auto;padding-block:40px 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:60px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:clamp(34px,5vw,52px);line-height:1.04}
+h2{font-size:27px;line-height:1.2}
+h3{font-size:16.5px}
+p{margin:0}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--brand-soft);color:var(--brand-ink);padding:1px 5px;border-radius:4px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--brand);font-weight:600}
+.lede{color:var(--soft);max-width:68ch;font-size:16.5px}
+.muted{color:var(--soft)}
+section{display:grid;gap:18px}
+.ch{display:grid;gap:6px}
+.ch .no{font-family:var(--mono);font-size:13px;color:var(--brand);font-weight:500}
+.prose{display:grid;gap:10px;max-width:72ch}
+
+/* cover */
+.cover{display:grid;gap:18px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.tagline{font-family:var(--display);font-size:22px;color:var(--brand-ink);font-weight:500}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.facts div{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.facts b{display:block;font-family:var(--display);font-size:24px;font-variant-numeric:tabular-nums;color:var(--brand-ink)}
+.facts span{font-size:12.5px;color:var(--soft)}
+.toc{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 24px;margin:0;padding-left:22px;font-size:14px;color:var(--soft)}
+
+/* problem/solution */
+.ps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ps > div{border-radius:12px;padding:18px;display:grid;gap:8px;align-content:start}
+.ps ul{margin:0;padding-left:18px;font-size:14px;display:grid;gap:4px}
+.prob{background:var(--crit-soft)} .prob h3{color:var(--crit)}
+.sol{background:var(--good-soft)} .sol h3{color:var(--good)}
+
+/* two layer */
+.layers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.layer{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:8px;align-content:start}
+.layer .role{font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.layer.rules{border-top:4px solid var(--brand)} .layer.rules .role{color:var(--brand)}
+.layer.ai{border-top:4px solid var(--warn)} .layer.ai .role{color:var(--warn)}
+.layer ul{margin:0;padding-left:18px;font-size:14px;display:grid;gap:3px}
+.callout{background:var(--brand-soft);color:var(--brand-ink);border-radius:10px;padding:14px 16px;font-size:14.5px}
+.callout b{font-family:var(--display)}
+
+/* features */
+.feats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.feat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:4px;align-content:start}
+.feat h3{font-size:15px}
+.feat p{font-size:13.5px;color:var(--soft)}
+.feat .where{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+
+/* architecture */
+.arch{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:grid;gap:10px;justify-items:center}
+.tier{width:100%;max-width:720px;border-radius:10px;padding:12px 16px;display:grid;gap:4px;text-align:center}
+.tier b{font-family:var(--display);font-size:15px}
+.tier span{font-size:13px;color:var(--soft)}
+.t-ui{background:var(--brand-soft);border:1px solid var(--brand)}
+.t-api{background:var(--bg);border:1px solid var(--line-strong,var(--line))}
+.t-ai{background:var(--warn-soft);border:1px solid var(--warn)}
+.down{color:var(--faint);font-size:13px;font-family:var(--mono)}
+.engines{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;width:100%;max-width:720px}
+.engines div{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12.5px;text-align:center}
+.engines b{display:block;font-size:13px}
+.pcbox{border:1.5px dashed var(--good);border-radius:14px;padding:14px;display:grid;gap:10px;justify-items:center;width:100%;box-sizing:border-box}
+.pclabel{font-size:12px;font-weight:600;color:var(--good);letter-spacing:.06em;text-transform:uppercase}
+
+/* pipeline */
+.pipe{display:grid;gap:0}
+.ps-step{display:grid;grid-template-columns:44px 1fr;gap:14px}
+.rail{display:flex;flex-direction:column;align-items:center}
+.num{width:34px;height:34px;border-radius:50%;background:var(--brand);color:var(--surface);display:grid;place-items:center;font-family:var(--display);font-weight:700;font-variant-numeric:tabular-nums;flex:none}
+.num.ai{background:var(--warn)}
+.ln{flex:1;width:2px;background:var(--line);min-height:12px}
+.pbody{padding-bottom:22px;display:grid;gap:6px;min-width:0}
+.pbody .meta{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.pbody ul{margin:0;padding-left:18px;font-size:14px;display:grid;gap:3px}
+.eg{font-size:13px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--soft)}
+.eg b{color:var(--ink)}
+
+/* tables */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:620px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:600;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.mono,td code{white-space:nowrap}
+.num-col{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* deep dives */
+.dives{display:grid;gap:12px}
+.dive{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:grid;gap:8px}
+.dive .h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.dive .file{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.dive ul{margin:0;padding-left:18px;font-size:14px;display:grid;gap:3px}
+.why{font-size:13.5px;color:var(--good)}
+.why b{font-weight:600}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12.5px;background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:2px 10px}
+
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:8px;align-content:start}
+.card ul{margin:0;padding-left:18px;font-size:14px;display:grid;gap:3px}
+.bad h3{color:var(--crit)} .good h3{color:var(--good)}
+
+.demo{counter-reset:d;display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.demo li{counter-increment:d;display:grid;grid-template-columns:72px 1fr;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:14px}
+.demo .t{font-family:var(--mono);font-size:12.5px;color:var(--brand);font-weight:500}
+.demo b{display:block}
+
+.qa{display:grid;gap:8px}
+.qa details{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.qa summary{cursor:pointer;font-weight:600;font-size:14.5px}
+.qa summary:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+.qa p{margin-top:8px;font-size:14px;color:var(--soft)}
+footer{font-size:13px;color:var(--faint);border-top:1px solid var(--line);padding-top:16px}
+
+@media (max-width:760px){
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .toc,.ps,.layers,.two{grid-template-columns:1fr}
+  .feats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .engines{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:460px){.feats{grid-template-columns:1fr}.demo li{grid-template-columns:1fr}}
+
+@page{size:A4 portrait;margin:12mm}
+@media print{
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:var(--bg);font-size:13px}
+  .wrap{max-width:none;padding-block:0;gap:34px}
+  .scroll{overflow:visible} table{min-width:0}
+  .facts{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .toc,.ps,.layers,.two{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .feats{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .engines{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .demo li{grid-template-columns:72px 1fr!important}
+  .feat,.dive,.card,.layer,.ps > div,.ps-step,tr,.demo li,.qa details,.arch{break-inside:avoid}
+  .ch{break-after:avoid}
+  .qa details > p{display:block}
+  .pagebreak{break-before:page}
+}
+</style>
+
+<div class="wrap">
+
+  <header class="cover">
+    <span class="eyebrow">Leadathon · Project explanation</span>
+    <h1>Doc Decode</h1>
+    <p class="tagline">Understand before you sign.</p>
+    <p class="lede">Doc Decode reads everyday documents, such as rental agreements, loan papers, hospital bills, invoices, GST notices and tenders, and turns them into something a person can act on: the real amounts and dates, the clauses worth a second look, plain-language explanations in English or Malayalam, and deadlines saved to the calendar. It runs entirely on the user's own computer.</p>
+    <div class="facts">
+      <div><b>12</b><span>document types recognised</span></div>
+      <div><b>12</b><span>risky clause categories</span></div>
+      <div><b>2</b><span>languages: English, Malayalam</span></div>
+      <div><b>143</b><span>automated tests, all passing</span></div>
+    </div>
+    <ol class="toc">
+      <li>The problem and our solution</li>
+      <li>The core idea: rules decide, AI explains</li>
+      <li>All features</li>
+      <li>System architecture</li>
+      <li>Technology used, and why</li>
+      <li>How one document is processed</li>
+      <li>Which file does what</li>
+      <li>How each key part works inside</li>
+      <li>API endpoints</li>
+      <li>Privacy and security</li>
+      <li>Measured performance and testing</li>
+      <li>Limitations and future work</li>
+      <li>Live demo plan</li>
+      <li>Questions we expect</li>
+    </ol>
+  </header>
+
+  <section>
+    <div class="ch"><span class="no">01</span><h2>The problem and our solution</h2></div>
+    <div class="ps">
+      <div class="prob"><h3>The problem</h3><ul>
+        <li>People sign rental and loan agreements they don't fully understand.</li>
+        <li>Legal and financial English is hard, especially for people more comfortable in Malayalam.</li>
+        <li>Penalties, lock-ins and deadlines are buried in long paragraphs.</li>
+        <li>Online AI tools need you to upload private documents to someone else's server.</li>
+        <li>AI summaries can invent numbers, which is dangerous with money and dates.</li>
+      </ul></div>
+      <div class="sol"><h3>Our solution</h3><ul>
+        <li>Upload a PDF or a photo. Get the key facts, flagged clauses and deadlines.</li>
+        <li>Every fact shows the exact sentence and page it came from.</li>
+        <li>Explanations in plain English or Malayalam, with read aloud.</li>
+        <li>Everything runs offline on the user's machine. No cloud, no account, no database.</li>
+        <li>Numbers are found by rules, never by the AI, so nothing is made up.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="ch"><span class="no">02</span><h2>The core idea: rules decide, AI explains</h2>
+      <p class="lede">This is the most important design decision in the project. The work is split into two layers with very different jobs.</p></div>
+    <div class="layers">
+      <div class="layer rules"><span class="role">Layer 1 · Python rules</span><h3>Decides <em>what</em> matters</h3><ul>
+        <li>Finds amounts, dates, interest rates, notice periods.</li>
+        <li>Detects the document type.</li>
+        <li>Flags risky clauses in 12 categories.</li>
+        <li>Checks the arithmetic on bills and invoices.</li>
+        <li>Same document in, same result out, every time.</li>
+      </ul></div>
+      <div class="layer ai"><span class="role">Layer 2 · Local AI (Ollama)</span><h3>Explains <em>how</em> to say it</h3><ul>
+        <li>Rewrites flagged clauses in simple words.</li>
+        <li>Answers questions using only sentences from the document.</li>
+        <li>Never asked to produce a number.</li>
+        <li>Never decides what is important.</li>
+        <li>Optional: if it is off, the app still works.</li>
+      </ul></div>
+    </div>
+    <p class="callout"><b>Why this matters:</b> an AI model can make up a figure that looks right. By keeping every number and every decision in rules we can test, the user can trust what they see. The AI is only a presentation step on top.</p>
+  </section>
+
+  <section class="pagebreak">
+    <div class="ch"><span class="no">03</span><h2>All features</h2>
+      <p class="muted">The grey line under each feature names the code file that does the work.</p></div>
+    <div class="feats">
+      <div class="feat"><h3>Upload PDF or photo</h3><p>Drag and drop a PDF, JPG or PNG up to 15 MB and 40 pages.</p><span class="where">UploadArea.jsx · pipeline.py</span></div>
+      <div class="feat"><h3>Read scanned pages (OCR)</h3><p>Pages with no text are turned into an image and read with Tesseract, in English and Malayalam.</p><span class="where">pdf_reader.py · ocr_reader.py</span></div>
+      <div class="feat"><h3>Detect document type</h3><p>12 types, from rental agreement to GST notice. Says "uncertain" instead of guessing.</p><span class="where">document_classifier.py</span></div>
+      <div class="feat"><h3>Extract key facts</h3><p>Rent, deposit, loan amount, interest, EMI, totals, due dates, each with its source line and page.</p><span class="where">fact_extractor.py · doc_intel.py</span></div>
+      <div class="feat"><h3>Flag risky clauses</h3><p>Auto-renewal, penalties, late fees, lock-in, one-sided terms and 7 more categories.</p><span class="where">clause_detector.py</span></div>
+      <div class="feat"><h3>Plain-language explanations</h3><p>The top clauses are rewritten in simple English or Malayalam by the local AI.</p><span class="where">ai_explainer.py · prompts.py</span></div>
+      <div class="feat"><h3>Deadlines and calendar</h3><p>Due dates with countdowns. Tick the ones you want and export a calendar file.</p><span class="where">deadline_extractor.py · calendar_export.py</span></div>
+      <div class="feat"><h3>Ask the document</h3><p>Ask a question in your own words. The answer shows the sentences it is based on.</p><span class="where">question_answering.py</span></div>
+      <div class="feat"><h3>Verify the maths</h3><p>Re-adds line items, tax and totals on bills and invoices using exact decimal arithmetic.</p><span class="where">verification.py · money.py</span></div>
+      <div class="feat"><h3>Invoice vs purchase order</h3><p>Upload both and see which items, quantities and amounts don't match.</p><span class="where">comparison.py · line_items.py</span></div>
+      <div class="feat"><h3>Tender checklist</h3><p>Lists a tender's requirements and checks them against details you enter. Never says "eligible".</p><span class="where">eligibility.py</span></div>
+      <div class="feat"><h3>Findings and actions</h3><p>Every issue in one list, with what to do next and a link back to the evidence.</p><span class="where">findings.py</span></div>
+      <div class="feat"><h3>Malayalam interface</h3><p>The whole app switches language, including labels and explanations.</p><span class="where">i18n.js · LanguageSelector.jsx</span></div>
+      <div class="feat"><h3>Read aloud</h3><p>Browser voice first. Offline eSpeak NG voice for Malayalam, which Windows lacks.</p><span class="where">AudioControls.jsx · tts_service.py</span></div>
+      <div class="feat"><h3>Change category</h3><p>If the type is wrong, pick the right one. Rules re-run on the same text, no re-upload.</p><span class="where">/api/reclassify</span></div>
+      <div class="feat"><h3>Demo documents</h3><p>Sample rental, loan, hospital bill and government notice to try before uploading your own.</p><span class="where">demo_catalog.py · Home.jsx</span></div>
+      <div class="feat"><h3>AI health badge</h3><p>Shows whether the local AI is running, so the user knows what to expect.</p><span class="where">HealthBadge.jsx · /api/health</span></div>
+      <div class="feat"><h3>Full privacy</h3><p>Nothing is saved. No database, no cloud call, no API key.</p><span class="where">whole system</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="ch"><span class="no">04</span><h2>System architecture</h2>
+      <p class="lede">Three programs run on the same computer and talk to each other over local addresses. Nothing goes out to the internet.</p></div>
+    <div class="arch">
+      <div class="pcbox">
+        <span class="pclabel">The user's own computer</span>
+        <div class="tier t-ui"><b>Frontend · React app in the browser</b><span>localhost:5173 · upload screen, tabs, language switch, read aloud</span></div>
+        <span class="down">▼ sends the file over HTTP (POST /api/analyze) ▲ gets back JSON</span>
+        <div class="tier t-api"><b>Backend · FastAPI server in Python</b><span>localhost:8000 · checks the file, reads text, runs every rule</span></div>
+        <div class="engines">
+          <div><b>Reader</b>PyMuPDF + Tesseract OCR</div>
+          <div><b>Classifier</b>keyword scores</div>
+          <div><b>Extractors</b>facts, clauses, deadlines</div>
+          <div><b>Checks</b>maths, compare, tender</div>
+        </div>
+        <span class="down">▼ sends only the flagged clauses, in one request ▲ gets back simple wording</span>
+        <div class="tier t-ai"><b>Local AI · Ollama</b><span>localhost:11434 · qwen2.5:3b for English, gemma2:9b for Malayalam</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="ch"><span class="no">05</span><h2>Technology used, and why</h2></div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Part</th><th>Technology</th><th>What it does here</th><th>Why we chose it</th></tr></thead>
+        <tbody>
+          <tr><td>Frontend</td><td>React 18</td><td>Builds the screens: upload, progress, tabs, cards</td><td>Component-based, fast, widely known</td></tr>
+          <tr><td>Build tool</td><td>Vite 6</td><td>Runs the dev server and builds the final bundle</td><td>Very fast start and reload</td></tr>
+          <tr><td>Styling</td><td>Tailwind CSS 4</td><td>All colours, spacing and layout</td><td>One design token file controls the whole look</td></tr>
+          <tr><td>Icons</td><td>Lucide React</td><td>Small clean icons</td><td>Light, consistent icon set</td></tr>
+          <tr><td>Backend</td><td>Python + FastAPI</td><td>The API the frontend calls</td><td>Fast, automatic validation, easy to test</td></tr>
+          <tr><td>Server</td><td>Uvicorn</td><td>Runs the FastAPI app</td><td>Standard, lightweight server for FastAPI</td></tr>
+          <tr><td>Data checking</td><td>Pydantic 2</td><td>Checks every request, response and AI reply has the right shape</td><td>Catches broken AI output before the user sees it</td></tr>
+          <tr><td>PDF reading</td><td>PyMuPDF</td><td>Pulls text from each PDF page, renders scans to images</td><td>Fast, accurate, keeps page numbers</td></tr>
+          <tr><td>OCR</td><td>Tesseract + pytesseract</td><td>Reads text from scans and photos, English and Malayalam</td><td>Free, offline, has a Malayalam model</td></tr>
+          <tr><td>Images</td><td>Pillow</td><td>Cleans up images before OCR</td><td>Standard Python image library</td></tr>
+          <tr><td>Local AI</td><td>Ollama</td><td>Runs the language model on the user's own GPU or CPU</td><td>No cloud, no API key, private</td></tr>
+          <tr><td>AI models</td><td>qwen2.5:3b · gemma2:9b</td><td>English explanations · Malayalam explanations</td><td>3b fits in 4 GB VRAM; 9b writes real Malayalam</td></tr>
+          <tr><td>HTTP client</td><td>httpx</td><td>Backend talks to Ollama</td><td>Timeouts and clean error handling</td></tr>
+          <tr><td>Speech</td><td>Web Speech API + eSpeak NG</td><td>Reads explanations aloud</td><td>Browser voices first; eSpeak adds offline Malayalam</td></tr>
+          <tr><td>Config</td><td>python-dotenv</td><td>Reads settings from a <code>.env</code> file</td><td>Change models and limits without touching code</td></tr>
+          <tr><td>Testing</td><td>pytest</td><td>143 automated tests</td><td>Proves the rules give the right answer</td></tr>
+          <tr><td>Storage</td><td>None</td><td>Files stay in memory for one request</td><td>Privacy by design</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="pagebreak">
+    <div class="ch"><span class="no">06</span><h2>How one document is processed</h2>
+      <p class="lede">From the moment the user drops a file to the moment results appear. Purple steps are rules; the orange step uses the AI.</p></div>
+    <div class="pipe">
+      <div class="ps-step"><div class="rail"><span class="num">1</span><span class="ln"></span></div><div class="pbody">
+        <h3>Check the upload</h3><span class="meta">pipeline.py</span>
+        <ul><li>File extension must be PDF, JPG or PNG.</li><li>Declared file type must match.</li><li>The first bytes of the file ("magic bytes") must really be a PDF or image, so a renamed .exe is rejected.</li><li>Size up to 15 MB, up to 40 pages.</li></ul>
+      </div></div>
+      <div class="ps-step"><div class="rail"><span class="num">2</span><span class="ln"></span></div><div class="pbody">
+        <h3>Read the text</h3><span class="meta">pdf_reader.py · ocr_reader.py</span>
+        <ul><li>PyMuPDF reads the text layer of each page.</li><li>If a page comes back empty, it is a scan: render it at 200 DPI and run Tesseract OCR (English + Malayalam) on that page only.</li><li>Photos (JPG/PNG) go straight to OCR.</li></ul>
+      </div></div>
+      <div class="ps-step"><div class="rail"><span class="num">3</span><span class="ln"></span></div><div class="pbody">
+        <h3>Clean and split</h3><span class="meta">utils.py</span>
+        <ul><li>Fix spacing and broken lines, unify Malayalam letter forms.</li><li>Split into clause-sized sentences, each tagged with its page number.</li></ul>
+      </div></div>
+      <div class="ps-step"><div class="rail"><span class="num">4</span><span class="ln"></span></div><div class="pbody">
+        <h3>Find the document type</h3><span class="meta">document_classifier.py</span>
+        <ul><li>Each of the 12 types has a list of keywords in English and Malayalam.</li><li>Count matches, pick the highest score.</li><li>If the top two are too close, report "uncertain".</li></ul>
+        <p class="eg">Example: "tenant", "landlord", "security deposit", "monthly rent" → <b>Rental agreement</b></p>
+      </div></div>
+      <div class="ps-step"><div class="rail"><span class="num">5</span><span class="ln"></span></div><div class="pbody">
+        <h3>Extract facts, clauses and deadlines</h3><span class="meta">fact_extractor.py · clause_detector.py · deadline_extractor.py · dates.py</span>
+        <ul><li>Regular expressions pick out amounts (including lakh and crore), rates, dates and durations.</li><li>Phrase rules flag clauses in 12 categories and rank them by importance.</li><li>Deadline cues ("due on", "on or before", "within 30 days") are matched to dates.</li></ul>
+        <p class="eg">Example: "a late fee of 2% per month shall be charged" → <b>Late fee</b> clause, page 3</p>
+      </div></div>
+      <div class="ps-step"><div class="rail"><span class="num">6</span><span class="ln"></span></div><div class="pbody">
+        <h3>Check, compare and build findings</h3><span class="meta">verification.py · findings.py · line_items.py</span>
+        <ul><li>For bills and invoices, re-add the line items and tax with exact decimals.</li><li>Collect every issue into one findings list with suggested actions.</li></ul>
+      </div></div>
+      <div class="ps-step"><div class="rail"><span class="num ai">7</span><span class="ln"></span></div><div class="pbody">
+        <h3>Explain in plain words (local AI)</h3><span class="meta">ai_explainer.py · prompts.py · ollama_service.py</span>
+        <ul><li>Send the top 6 clauses (3 in Malayalam) to Ollama in one batched request, never the whole document.</li><li>The reply must be JSON; Pydantic checks it.</li><li>If Ollama is off, this step is skipped and rule-based notes are shown.</li></ul>
+      </div></div>
+      <div class="ps-step"><div class="rail"><span class="num">8</span></div><div class="pbody">
+        <h3>Send results to the screen</h3><span class="meta">schemas.py · Analysis.jsx</span>
+        <ul><li>One structured JSON response goes back to React.</li><li>React shows it in tabs: Overview, Extracted data, Verify, Deadlines, Findings, Tender checklist, Ask.</li></ul>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="ch"><span class="no">07</span><h2>Which file does what</h2></div>
+    <h3>Backend (Python, in <code>backend/</code>)</h3>
+    <div class="scroll"><table>
+      <thead><tr><th>File</th><th>Job</th></tr></thead>
+      <tbody>
+        <tr><td><code>main.py</code></td><td>All API routes and error handling; preloads the AI model at startup</td></tr>
+        <tr><td><code>config.py</code></td><td>Reads every setting from <code>.env</code></td></tr>
+        <tr><td><code>schemas.py</code></td><td>Pydantic shapes for requests, responses and AI output</td></tr>
+        <tr><td><code>pipeline.py</code></td><td>Upload checks and the full analysis flow, start to finish</td></tr>
+        <tr><td><code>pdf_reader.py</code></td><td>Text from PDFs, with OCR only on empty pages</td></tr>
+        <tr><td><code>ocr_reader.py</code></td><td>Finds Tesseract, picks languages, prepares images</td></tr>
+        <tr><td><code>utils.py</code></td><td>Text cleanup and sentence splitting</td></tr>
+        <tr><td><code>dates.py</code> · <code>money.py</code></td><td>Indian date and money formats; exact decimal arithmetic</td></tr>
+        <tr><td><code>document_classifier.py</code></td><td>Keyword scoring for the 12 document types</td></tr>
+        <tr><td><code>fact_extractor.py</code> · <code>doc_intel.py</code></td><td>Fact rules for each document type</td></tr>
+        <tr><td><code>clause_detector.py</code></td><td>The 12-category clause rule engine</td></tr>
+        <tr><td><code>deadline_extractor.py</code></td><td>Deadline cues and date resolution</td></tr>
+        <tr><td><code>line_items.py</code></td><td>Reads invoice and purchase order tables</td></tr>
+        <tr><td><code>verification.py</code></td><td>Arithmetic checks on totals and tax</td></tr>
+        <tr><td><code>comparison.py</code></td><td>Invoice vs purchase order comparison</td></tr>
+        <tr><td><code>eligibility.py</code></td><td>Tender requirement checklist</td></tr>
+        <tr><td><code>findings.py</code></td><td>Findings and action list built from evidence</td></tr>
+        <tr><td><code>ollama_service.py</code></td><td>Talks to Ollama, checks it is running, parses JSON</td></tr>
+        <tr><td><code>prompts.py</code></td><td>Prompt templates, with document text fenced off as untrusted</td></tr>
+        <tr><td><code>ai_explainer.py</code></td><td>Batched clause explanations and summary</td></tr>
+        <tr><td><code>question_answering.py</code></td><td>TF-IDF search plus a grounded AI answer</td></tr>
+        <tr><td><code>calendar_export.py</code></td><td>Builds the <code>.ics</code> calendar file</td></tr>
+        <tr><td><code>tts_service.py</code></td><td>Offline speech with eSpeak NG</td></tr>
+        <tr><td><code>demo_catalog.py</code></td><td>The list of safe demo documents</td></tr>
+      </tbody>
+    </table></div>
+    <h3>Frontend (React, in <code>frontend/src/</code>)</h3>
+    <div class="scroll"><table>
+      <thead><tr><th>File</th><th>Job</th></tr></thead>
+      <tbody>
+        <tr><td><code>App.jsx</code></td><td>Holds app state, switches language, polls AI health</td></tr>
+        <tr><td><code>pages/Home.jsx</code></td><td>Landing page, upload area, demo cards</td></tr>
+        <tr><td><code>pages/Analysis.jsx</code></td><td>The results workspace and its tabs</td></tr>
+        <tr><td><code>services/api.js</code></td><td>Every call to the backend</td></tr>
+        <tr><td><code>i18n.js</code></td><td>English and Malayalam text for the whole interface</td></tr>
+        <tr><td><code>components/</code></td><td>UploadArea, ProcessingStatus, KeyFacts, RiskCard, DeadlineList, AskDocument, AudioControls, HealthBadge, PrivacyPanel and more</td></tr>
+        <tr><td><code>components/workspace/</code></td><td>Tab panels: Verify, Timeline, Findings, Tender, Eligibility form</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="pagebreak">
+    <div class="ch"><span class="no">08</span><h2>How each key part works inside</h2></div>
+    <div class="dives">
+      <div class="dive"><div class="h"><h3>Reading scans with OCR</h3><span class="file">pdf_reader.py · ocr_reader.py</span></div>
+        <ul><li>OCR runs only on pages that have no text, so normal PDFs stay fast.</li><li>Pages are rendered at 200 DPI and resized to a maximum of 2200 px, then read in English + Malayalam.</li><li>At most 8 pages are OCR'd, to keep a laptop responsive.</li></ul>
+        <p class="why"><b>Result:</b> a 2-page scan reads in about 5 seconds; a photo in about 1 second.</p></div>
+      <div class="dive"><div class="h"><h3>Malayalam support</h3><span class="file">utils.py · document_classifier.py · dates.py</span></div>
+        <ul><li>Rules carry Malayalam keywords next to English ones.</li><li>Some Malayalam letters can be typed two ways (for example ർ and ര്). Both are converted to one form before matching.</li><li>Amounts like <code>18,500 രൂപ</code> and durations like <code>11 മാസം</code> are understood.</li><li>If the AI replies in the wrong script (a small model once answered in Chinese), the reply is thrown away and a warning shown.</li></ul></div>
+      <div class="dive"><div class="h"><h3>Clause detection</h3><span class="file">clause_detector.py</span></div>
+        <div class="chips"><span class="chip">Auto-renewal</span><span class="chip">Penalties</span><span class="chip">Late fees</span><span class="chip">Extra charges</span><span class="chip">Lock-in</span><span class="chip">Early termination</span><span class="chip">Deductions</span><span class="chip">Notice periods</span><span class="chip">Interest conditions</span><span class="chip">Obligations</span><span class="chip">Deadlines</span><span class="chip">One-sided conditions</span></div>
+        <ul><li>Each category has a set of trigger phrases. A matching sentence is flagged with its page.</li><li>Flags are "worth a look", never "illegal". A test makes sure no rule uses words like illegal or void.</li></ul></div>
+      <div class="dive"><div class="h"><h3>AI explanations</h3><span class="file">ai_explainer.py · prompts.py</span></div>
+        <ul><li>All selected clauses go in one request, not one per clause, to save time.</li><li>Document text is placed inside a fenced block; the AI is told to ignore any instructions inside it. This blocks "prompt injection" hidden in a document.</li><li>If the reply is cut off, every complete item is still kept instead of retrying the whole thing.</li><li>The model is loaded when the server starts and kept warm for 30 minutes.</li></ul></div>
+      <div class="dive"><div class="h"><h3>Ask the document</h3><span class="file">question_answering.py</span></div>
+        <ul><li>A small hand-written TF-IDF search scores every sentence against the question.</li><li>Only the top sentences go to the AI, so long documents cost the same as short ones.</li><li>The answer is shown together with those sentences as evidence.</li></ul>
+        <p class="why"><b>Why no vector database:</b> it adds weight and setup for little gain on single documents.</p></div>
+      <div class="dive"><div class="h"><h3>Verifying the maths</h3><span class="file">verification.py · money.py</span></div>
+        <ul><li>Every amount goes through Python's <code>Decimal</code>, never floating point, so ₹1,23,456.78 adds up exactly.</li><li>Each check shows the formula, the inputs, what the document says and what the maths gives.</li><li>A missing value is reported as missing, never treated as zero.</li></ul></div>
+      <div class="dive"><div class="h"><h3>Deadlines and calendar</h3><span class="file">deadline_extractor.py · calendar_export.py</span></div>
+        <ul><li>Finds phrases like "due on", "on or before", "within 15 days" and links them to a date.</li><li>Dates that can't be confirmed are kept apart and never shown as overdue.</li><li>Ticked dates are exported as a standard <code>.ics</code> file (RFC 5545) that any calendar opens.</li></ul></div>
+      <div class="dive"><div class="h"><h3>Read aloud</h3><span class="file">AudioControls.jsx · tts_service.py</span></div>
+        <ul><li>Uses the browser's own voice when it has one for the language.</li><li>Windows has no Malayalam voice, so the backend uses eSpeak NG offline.</li><li>If neither is available the button is disabled with a reason, instead of reading Malayalam in an English voice.</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="ch"><span class="no">09</span><h2>API endpoints</h2>
+      <p class="muted">The backend address the frontend calls. All are on <code>localhost:8000</code>.</p></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Method</th><th>Endpoint</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td><code>/api/health</code></td><td>Is the backend up, is the AI ready, is OCR installed</td></tr>
+        <tr><td>POST</td><td><code>/api/analyze</code></td><td>Upload a file, get the full analysis</td></tr>
+        <tr><td>POST</td><td><code>/api/explain</code></td><td>Explain clauses again, for example in the other language</td></tr>
+        <tr><td>POST</td><td><code>/api/ask</code></td><td>Ask a question about the document</td></tr>
+        <tr><td>POST</td><td><code>/api/calendar</code></td><td>Build the <code>.ics</code> file from chosen deadlines</td></tr>
+        <tr><td>POST</td><td><code>/api/tts</code></td><td>Offline speech audio</td></tr>
+        <tr><td>POST</td><td><code>/api/reclassify</code></td><td>Re-run rules under a type the user picked</td></tr>
+        <tr><td>POST</td><td><code>/api/compare</code></td><td>Invoice vs purchase order</td></tr>
+        <tr><td>POST</td><td><code>/api/eligibility</code></td><td>Tender requirement checklist</td></tr>
+        <tr><td>GET</td><td><code>/api/demo</code></td><td>List of demo documents and their files</td></tr>
+        <tr><td>GET</td><td><code>/api/rules</code></td><td>Shows what the rule engine looks for</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <div class="ch"><span class="no">10</span><h2>Privacy and security</h2></div>
+    <div class="two">
+      <div class="card good"><h3>What we do</h3><ul>
+        <li>The file stays in memory for one request, then is dropped. Never written to disk.</li>
+        <li>No database, no history. Reload the page and it's gone.</li>
+        <li>No cloud AI, no API key. The AI runs at localhost.</li>
+        <li>Uploads checked by extension, file type and magic bytes. Nothing uploaded is ever run.</li>
+        <li>Document text is never written to logs.</li>
+        <li>Document text is fenced in prompts to block prompt injection. A test covers this.</li>
+      </ul></div>
+      <div class="card bad"><h3>What we don't claim</h3><ul>
+        <li>It's a hackathon prototype, not a hardened product.</li>
+        <li>No login, no encryption at rest, no rate limiting.</li>
+        <li>Meant to run on your own machine, not on a public network.</li>
+        <li>The browser may use an online voice for read aloud, depending on the system.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section class="pagebreak">
+    <div class="ch"><span class="no">11</span><h2>Measured performance and testing</h2>
+      <p class="muted">Real numbers from the development laptop (Windows 11, RTX 3050 with 4 GB VRAM).</p></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Task</th><th>Time</th></tr></thead>
+      <tbody>
+        <tr><td>Analysis with rules only (no AI)</td><td class="num-col">4–5 ms</td></tr>
+        <tr><td>Full analysis with qwen2.5:3b (fits in GPU)</td><td class="num-col">17 s</td></tr>
+        <tr><td>Full analysis with gemma2:9b (too big for 4 GB, spills to CPU)</td><td class="num-col">214 s</td></tr>
+        <tr><td>8 clauses explained in one batch</td><td class="num-col">13.6 s</td></tr>
+        <tr><td>Scanned 2-page PDF, OCR</td><td class="num-col">5.3 s</td></tr>
+        <tr><td>One photo, OCR</td><td class="num-col">1.0 s</td></tr>
+        <tr><td>One question in Ask</td><td class="num-col">about 6 s</td></tr>
+      </tbody>
+    </table></div>
+    <p class="callout"><b>Key learning:</b> speed depends on whether the AI model fits in the graphics card's memory, not on the document. The same document took 17 s with a model that fits and 214 s with one that doesn't, which is why English and Malayalam use different models.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Test file</th><th>What it checks</th></tr></thead>
+      <tbody>
+        <tr><td><code>test_api.py</code></td><td>Every endpoint, upload rejection, error messages</td></tr>
+        <tr><td><code>test_rules.py</code></td><td>Classifier and clause rules, no "illegal" wording</td></tr>
+        <tr><td><code>test_extraction.py</code> · <code>test_deadlines.py</code></td><td>Amounts, dates and deadlines read correctly</td></tr>
+        <tr><td><code>test_ollama.py</code></td><td>AI reply parsing, cut-off replies, prompt injection fencing</td></tr>
+        <tr><td><code>test_ocr.py</code></td><td>Scanned pages and photos</td></tr>
+        <tr><td><code>test_malayalam.py</code></td><td>Malayalam keywords, amounts, durations, letter forms</td></tr>
+        <tr><td><code>test_new_pieces.py</code></td><td>Verification, comparison, tender checklist, findings</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted"><b style="color:var(--good)">143 tests passed</b> on the latest run with <code>pytest</code>.</p>
+  </section>
+
+  <section>
+    <div class="ch"><span class="no">12</span><h2>Limitations and future work</h2></div>
+    <div class="two">
+      <div class="card bad"><h3>Current limitations</h3><ul>
+        <li>Rules match wording, so an unusually phrased clause can be missed.</li>
+        <li>Handwriting can't be read reliably; Tesseract is for printed text.</li>
+        <li>Blurry photos give poor OCR, and poor text gives poor facts.</li>
+        <li>Malayalam explanations need a larger, slower AI model.</li>
+        <li>Not legal or financial advice.</li>
+      </ul></div>
+      <div class="card good"><h3>Future work</h3><ul>
+        <li>Show rule results instantly, then stream AI explanations in.</li>
+        <li>Mobile app that photographs and reads documents on the phone.</li>
+        <li>More Indian languages: Tamil, Hindi, Kannada.</li>
+        <li>Handwriting recognition model.</li>
+        <li>Printable one-page summary with key terms and dates.</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="ch"><span class="no">13</span><h2>Live demo plan</h2><p class="muted">About 5 minutes. Start the backend a minute early so the AI model is warm.</p></div>
+    <ol class="demo">
+      <li><span class="t">0:00</span><div><b>Home page</b>Point out the health badge and the privacy note: everything runs on this laptop.</div></li>
+      <li><span class="t">0:30</span><div><b>Upload the demo rental agreement</b>Show the progress steps ticking off.</div></li>
+      <li><span class="t">1:00</span><div><b>Overview tab</b>Document type, summary, top risks. Point at a fact and show its source sentence and page.</div></li>
+      <li><span class="t">2:00</span><div><b>Findings tab</b>A flagged lock-in or late-fee clause with original wording and the simple explanation.</div></li>
+      <li><span class="t">2:45</span><div><b>Switch to Malayalam</b>Interface changes language; press Read aloud.</div></li>
+      <li><span class="t">3:30</span><div><b>Ask tab</b>Ask "Can the deposit be kept if I leave early?" and show the evidence sentences.</div></li>
+      <li><span class="t">4:15</span><div><b>Deadlines tab</b>Tick two dates and export the calendar file.</div></li>
+      <li><span class="t">4:45</span><div><b>Proof it works offline</b>Stop Ollama, upload again: facts and clauses still appear, with an honest note.</div></li>
+    </ol>
+  </section>
+
+  <section class="pagebreak">
+    <div class="ch"><span class="no">14</span><h2>Questions we expect</h2></div>
+    <div class="qa">
+      <details open><summary>How is this different from ChatGPT or an AI PDF summariser?</summary><p>Those send your document to the cloud and let the AI decide everything, including numbers. Doc Decode runs offline, and every fact and flag comes from testable rules. The AI only rewrites in simpler words.</p></details>
+      <details open><summary>What if the AI gives a wrong explanation?</summary><p>The original clause is always shown beside it, with its page, and each explanation is labelled as coming from the AI or the rules. The AI is never trusted with numbers.</p></details>
+      <details open><summary>Does it need the internet?</summary><p>No. Once installed, everything runs on the laptop: the browser app, the Python backend and the AI model.</p></details>
+      <details open><summary>Why Ollama and not the OpenAI or Gemini API?</summary><p>Privacy and cost. Personal documents never leave the machine, and there is no API key or per-use charge.</p></details>
+      <details open><summary>Why use rules at all? Isn't AI better?</summary><p>Rules are predictable and testable: the same document always gives the same result, and we have 143 tests to prove it. For money and dates, being reliably right matters more than being clever.</p></details>
+      <details open><summary>What happens with a document type you don't support?</summary><p>It is marked "uncertain" or "other" and still gets the general amount, date and clause rules. The user can also pick the type manually.</p></details>
+      <details open><summary>How do you handle Malayalam?</summary><p>At three levels: Tesseract reads Malayalam scans, the rules carry Malayalam keywords, and a larger model writes Malayalam explanations. If the AI answers in the wrong script, we discard it.</p></details>
+      <details open><summary>How do you stop a malicious document from tricking the AI?</summary><p>Document text is placed in a fenced block and the AI is told to treat it as data, not instructions. There is a test for this.</p></details>
+      <details open><summary>How did you make it fast on a 4 GB laptop GPU?</summary><p>A small 3B model that fits fully in GPU memory, one batched request for all clauses, preloading the model at startup, and OCR only on pages that need it.</p></details>
+      <details open><summary>Who would use this?</summary><p>Tenants, borrowers, patients' families, small business owners handling invoices, GST notices and tenders, especially people more comfortable in Malayalam than legal English.</p></details>
+    </div>
+  </section>
+
+  <footer>Doc Decode · Leadathon · How the project works. Companion files: Customer journey map, User workflow.</footer>
+</div>
