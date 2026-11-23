@@ -39,3 +39,10 @@ def test_plain_expiry_still_extracted_once():
     )
     assert [d.date_iso for d in items] == ["2026-02-28"]
     assert items[0].evidence_status == "extracted"
+
+
+def test_tender_bid_opening_date_becomes_a_deadline():
+    items = _extract("Bid opening date: 17/12/2026")
+    dated = [d for d in items if d.date_iso == "2026-12-17"]
+    assert len(dated) == 1
+    assert "opening" in dated[0].description.lower()
