@@ -8,10 +8,15 @@ not eligible; the tender authority decides that.
 """
 import difflib
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import money
-from schemas import EligibilityRequest, EligibilityResponse, TenderRequirement
+from schemas import (
+    EligibilityRequest,
+    EligibilityResponse,
+    EligibilityRow,
+    TenderRequirement,
+)
 
 DISCLAIMER = (
     "This is a checklist to help you read the tender. It is not a decision and "
@@ -29,13 +34,13 @@ _KNOWN_CREDENTIALS = [
 ]
 
 
-def _row(requirement: TenderRequirement, detail: str = "") -> Dict[str, Optional[str]]:
-    return {
-        "requirement": requirement.label,
-        "detail": detail,
-        "page": requirement.page,
-        "source_text": requirement.source_text,
-    }
+def _row(requirement: TenderRequirement, detail: str = "") -> EligibilityRow:
+    return EligibilityRow(
+        requirement=requirement.label,
+        detail=detail,
+        page=requirement.page,
+        source_text=requirement.source_text,
+    )
 
 
 def _contains_any(entries: List[str], needle: str) -> bool:
@@ -104,7 +109,7 @@ def _check(requirement: TenderRequirement, request: EligibilityRequest) -> tuple
 
 
 def check(request: EligibilityRequest) -> EligibilityResponse:
-    buckets: Dict[str, List[Dict[str, Optional[str]]]] = {
+    buckets: Dict[str, List[EligibilityRow]] = {
         "meets": [],
         "does_not_meet": [],
         "missing": [],

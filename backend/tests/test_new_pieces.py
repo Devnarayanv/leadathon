@@ -270,3 +270,35 @@ def test_eligibility_endpoint_always_carries_disclaimer():
     body = resp.json()
     assert "not a decision" in body["disclaimer"]
     assert body["meets"] or body["does_not_meet"] or body["missing"] or body["needs_verification"]
+
+
+def test_eligibility_endpoint_handles_requirements_with_a_page_number():
+    """Every requirement extracted from a tender carries a page, and a row typed
+    as Optional[str] rejected that int, so the normal case returned HTTP 500."""
+    resp = client.post("/api/eligibility", json={
+        "business_type": "Private limited",
+        "turnover": "Rs. 40,00,000",
+        "experience_years": 4,
+        "certifications": [],
+        "registrations": ["adg", "wsf"],
+        "documents": [],
+        "requirements": [
+            {
+                "label": "GST registration",
+                "description": "Bidders must hold a valid GST registration",
+                "page": 2,
+                "source_text": "Bidders must hold a valid GST registration.",
+            },
+            {
+                "label": "Minimum turnover Rs. 50,00,000",
+                "kind": "financial",
+                "page": 3,
+                "source_text": "Minimum turnover Rs. 50,00,000.",
+            },
+        ],
+    })
+    assert resp.status_code == 200
+    body = resp.json()
+    rows = body["meets"] + body["does_not_meet"] + body["missing"] + body["needs_verification"]
+    assert len(rows) == 2
+    assert {row["page"] for row in rows} == {2, 3}

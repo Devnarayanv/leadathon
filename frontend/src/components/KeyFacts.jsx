@@ -19,7 +19,7 @@ function FactRow({ fact, language }) {
               onClick={() => setShowSource((value) => !value)}
               className="rounded px-1 transition-colors hover:bg-sunken hover:text-ink"
             >
-              {showSource ? "hide" : "source"}
+              {showSource ? t(language, "hideSource") : t(language, "showSource")}
             </button>
           )}
         </div>
@@ -28,7 +28,7 @@ function FactRow({ fact, language }) {
         {fact.value}
         {fact.uncertain && (
           <span className="ml-2 align-middle text-[0.7rem] font-normal text-warn">
-            uncertain
+            {t(language, "uncertainWord")}
           </span>
         )}
       </p>
@@ -57,7 +57,7 @@ export default function KeyFacts({ facts, language }) {
         <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
           {t(language, "keyInfo")}
         </h2>
-        <p className="text-[0.72rem] text-ink-faint">Read from the text by rules</p>
+        <p className="text-[0.72rem] text-ink-faint">{t(language, "readByRules")}</p>
       </div>
       <div className="mt-3 grid gap-x-8 sm:grid-cols-2 xl:grid-cols-3">
         {facts.map((fact) => (

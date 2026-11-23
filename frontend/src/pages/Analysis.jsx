@@ -23,7 +23,7 @@ import TimelinePanel from "../components/workspace/TimelinePanel.jsx";
 import FindingsPanel from "../components/workspace/FindingsPanel.jsx";
 import TenderPanel from "../components/workspace/TenderPanel.jsx";
 import { ws } from "../components/workspace/common.jsx";
-import { t } from "../i18n.js";
+import { docTypeLabel, t } from "../i18n.js";
 
 // Workspace sections. One document, several lenses. Tab state is local: a
 // refresh returns to Overview, which is the honest default.
@@ -166,7 +166,11 @@ export default function Analysis({
               <span
                 className={`chip ${uncertain ? "bg-warn-soft text-warn" : "bg-brand-soft text-brand-ink"}`}
               >
-                {result.classification.label}
+                {docTypeLabel(
+                  result.classification.doc_type,
+                  result.classification.label,
+                  language,
+                )}
               </span>
               {result.ocr_used && (
                 <span className="chip bg-note-soft text-note">
@@ -188,7 +192,9 @@ export default function Analysis({
               <span aria-hidden="true">·</span>
               <span>{(result.file_size_bytes / 1024).toFixed(0)} KB</span>
               <span aria-hidden="true">·</span>
-              <span>analysed in {(result.duration_ms / 1000).toFixed(1)}s</span>
+              <span>
+                {t(language, "analysedIn")} {(result.duration_ms / 1000).toFixed(1)}s
+              </span>
             </p>
           </header>
 
@@ -310,10 +316,7 @@ export default function Analysis({
           </div>
 
           <p className="mt-8 border-t border-line pt-4 text-[0.72rem] leading-relaxed text-ink-faint">
-            Doc Decode flags wording that deserves attention and explains it in simpler
-            words. It does not decide whether anything is legal, valid or fair, and it
-            can miss clauses. Check the original document and take professional advice
-            before you sign, pay or reply.
+            {t(language, "footerNote")}
           </p>
         </main>
       </div>

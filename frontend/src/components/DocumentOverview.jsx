@@ -1,5 +1,5 @@
 import { AlertTriangle, ScanLine } from "lucide-react";
-import { t } from "../i18n.js";
+import { docTypeLabel, t } from "../i18n.js";
 import AudioControls from "./AudioControls.jsx";
 
 function Stat({ label, value, title }) {
@@ -47,22 +47,25 @@ export default function DocumentOverview({ result, language, speech }) {
           </p>
           {result.summary_source === "rules" && (
             <p className="mt-2 text-[0.72rem] text-ink-faint">
-              Written from rule output, not from the AI model.
+              {t(language, "writtenFromRules")}
             </p>
           )}
         </>
       ) : (
         <p className="mt-3 text-[0.85rem] text-ink-soft">
-          No summary was produced for this document.
+          {t(language, "noSummary")}
         </p>
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4">
-        <Stat label={t(language, "docType")} value={classification.label} />
+        <Stat
+          label={t(language, "docType")}
+          value={docTypeLabel(classification.doc_type, classification.label, language)}
+        />
         <Stat label={t(language, "pages")} value={String(result.page_count)} />
         <Stat
-          label="Text read by"
-          value={result.ocr_used ? "PDF text + OCR" : "PDF text layer"}
+          label={t(language, "textReadBy")}
+          value={result.ocr_used ? t(language, "pdfTextOcr") : t(language, "pdfText")}
         />
         <Stat
           label={t(language, "source")}
@@ -77,20 +80,14 @@ export default function DocumentOverview({ result, language, speech }) {
       {uncertain && (
         <p className="mt-5 flex items-start gap-2.5 rounded-lg border border-warn/25 bg-warn-soft px-3.5 py-3 text-[0.8rem] leading-relaxed text-warn">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-          <span>
-            Document type uncertain. The facts are still read directly from the text,
-            but the field names come from the closest matching type.
-          </span>
+          <span>{t(language, "uncertainTypeNote")}</span>
         </p>
       )}
 
       {result.ocr_used && (
         <p className="mt-2.5 flex items-start gap-2.5 rounded-lg border border-note/25 bg-note-soft px-3.5 py-3 text-[0.8rem] leading-relaxed text-note">
           <ScanLine size={14} className="mt-0.5 shrink-0" />
-          <span>
-            Some pages had no selectable text, so OCR was used. OCR can misread
-            characters &mdash; check any amount or date against the original.
-          </span>
+          <span>{t(language, "ocrNote")}</span>
         </p>
       )}
     </section>

@@ -23,6 +23,9 @@ RULES: List[Dict] = [
     {
         "category": "auto_renewal",
         "label": "Auto-renewal",
+        "label_ml": "സ്വയം പുതുക്കൽ",
+        "reason_ml": "ആരും സമയത്ത് നടപടിയെടുത്തില്ലെങ്കിൽ കരാർ സ്വയം തുടരാം.",
+        "action_ml": "തുടരേണ്ടതില്ലെങ്കിൽ നോട്ടീസ് നൽകാനുള്ള അവസാന തീയതി എടുത്തുവയ്ക്കുക.",
         "attention_level": "attention",
         "primary": [
             "automatically renew", "automatically be renewed", "auto-renew",
@@ -40,6 +43,9 @@ RULES: List[Dict] = [
     {
         "category": "penalty",
         "label": "Penalty charge",
+        "label_ml": "പിഴ ചാർജ്",
+        "reason_ml": "ഈ വാക്യം പറയുന്ന സാഹചര്യത്തിൽ പണപരമായ പിഴ ബാധകമാണ്.",
+        "action_ml": "പിഴ എപ്പോൾ ആരംഭിക്കുന്നു, എങ്ങനെ കണക്കാക്കുന്നു എന്ന് ചോദിക്കുക.",
         "attention_level": "financial",
         "primary": [
             "penalty", "penal interest", "penal charge", "liquidated damages",
@@ -54,6 +60,9 @@ RULES: List[Dict] = [
     {
         "category": "late_payment",
         "label": "Late-payment fee",
+        "label_ml": "വൈകിയുള്ള പേയ്‌മെന്റ് ഫീസ്",
+        "reason_ml": "വൈകി പണം നൽകിയാൽ അധിക തുകയോ മറ്റ് പ്രത്യാഘാതമോ ഉണ്ടാകാം.",
+        "action_ml": "കൃത്യമായ അടവ് തീയതിയും അനുവദിച്ച സമയപരിധിയും ഉറപ്പാക്കുക.",
         "attention_level": "financial",
         "primary": [
             "late payment", "late fee", "delayed payment", "overdue",
@@ -69,6 +78,9 @@ RULES: List[Dict] = [
     {
         "category": "extra_charges",
         "label": "Additional charges",
+        "label_ml": "അധിക ചാർജുകൾ",
+        "reason_ml": "പ്രധാന തുകയ്ക്ക് പുറമേ പണം നൽകേണ്ടതുണ്ട്.",
+        "action_ml": "ഈ ചാർജുകൾ കൂട്ടി മൊത്ത മാസച്ചെലവും ആകെച്ചെലവും എഴുതി വാങ്ങുക.",
         "attention_level": "financial",
         "primary": [
             "additional charge", "extra charge", "over and above", "in addition to the rent",
@@ -86,6 +98,9 @@ RULES: List[Dict] = [
     {
         "category": "lock_in",
         "label": "Lock-in period",
+        "label_ml": "ലോക്ക്-ഇൻ കാലയളവ്",
+        "reason_ml": "പോകാൻ ആഗ്രഹിച്ചാലും ഒരു നിശ്ചിത കാലം കരാർ ബാധകമായിരിക്കാം.",
+        "action_ml": "ഈ കാലയളവിൽ പുറത്തുപോകേണ്ടിവന്നാൽ എത്ര നൽകണം എന്ന് പരിശോധിക്കുക.",
         "attention_level": "unusual",
         "primary": [
             "lock-in", "lock in period", "minimum period of", "shall not vacate before",
@@ -101,6 +116,9 @@ RULES: List[Dict] = [
     {
         "category": "early_termination",
         "label": "Early termination",
+        "label_ml": "നേരത്തെയുള്ള അവസാനിപ്പിക്കൽ",
+        "reason_ml": "കരാർ നേരത്തെ അവസാനിപ്പിക്കുന്നതിന് പ്രത്യേക വ്യവസ്ഥകളോ ചെലവോ ഉണ്ട്.",
+        "action_ml": "ഒപ്പിടുന്നതിന് മുൻപ് നേരത്തെ പുറത്തുപോകുന്നതിന്റെ ചെലവ് കണക്കാക്കുക.",
         "attention_level": "attention",
         "primary": [
             "early termination", "terminate the agreement before", "premature termination",
@@ -116,6 +134,9 @@ RULES: List[Dict] = [
     {
         "category": "deposit_deduction",
         "label": "Deduction or forfeiture",
+        "label_ml": "ഡിപ്പോസിറ്റിൽ നിന്നുള്ള കുറയ്ക്കൽ / കണ്ടുകെട്ടൽ",
+        "reason_ml": "നേരത്തെ നൽകിയ പണം തിരികെ നൽകാതിരിക്കാം അല്ലെങ്കിൽ കുറയ്ക്കാം.",
+        "action_ml": "കുറയ്ക്കുന്ന കാര്യങ്ങൾ എഴുതിവാങ്ങുകയും വസ്തു/സ്ഥലത്തിന്റെ അവസ്ഥ ഫോട്ടോ എടുക്കുകയും ചെയ്യുക.",
         "attention_level": "financial",
         "primary": [
             "deduct", "deducted from the deposit", "forfeit", "forfeited",
@@ -132,6 +153,9 @@ RULES: List[Dict] = [
     {
         "category": "notice_period",
         "label": "Notice period",
+        "label_ml": "നോട്ടീസ് കാലാവധി",
+        "reason_ml": "മറുഭാഗത്തിന് ഒരു നിശ്ചിത കാലം മുൻപേ അറിയിപ്പ് നൽകണം.",
+        "action_ml": "സാധുവായ നോട്ടീസ് നൽകാനുള്ള അവസാന തീയതി അടയാളപ്പെടുത്തുക.",
         "attention_level": "attention",
         "primary": [
             "notice period", "months notice", "month notice", "months prior notice",
@@ -148,6 +172,9 @@ RULES: List[Dict] = [
     {
         "category": "interest_rate",
         "label": "Interest condition",
+        "label_ml": "പലിശ നിബന്ധന",
+        "reason_ml": "പലിശ വ്യവസ്ഥകൾ ആകെ ചെലവ് എത്രയെന്ന് തീരുമാനിക്കുന്നു.",
+        "action_ml": "നിരക്ക് മാറാമോ, ആകെ തിരിച്ചടവ് എത്രയെന്നും ചോദിക്കുക.",
         "attention_level": "financial",
         "primary": [
             "rate of interest", "interest at the rate", "per annum", "compounded",
@@ -163,6 +190,9 @@ RULES: List[Dict] = [
     {
         "category": "obligation",
         "label": "Important obligation",
+        "label_ml": "പ്രധാന ബാധ്യത",
+        "reason_ml": "ഈ വാക്യം ഒരു ഭാഗത്തിന് ചുമതല ഏൽപ്പിക്കുന്നു.",
+        "action_ml": "ഈ ചുമതല നിങ്ങൾക്ക് യഥാർത്ഥത്തിൽ നിർവഹിക്കാനാകുമോ എന്ന് പരിശോധിക്കുക.",
         "attention_level": "attention",
         "primary": [
             "shall be responsible for", "shall be liable for", "undertakes to",
@@ -179,6 +209,9 @@ RULES: List[Dict] = [
     {
         "category": "deadline",
         "label": "Important deadline",
+        "label_ml": "പ്രധാന അവസാന തീയതി",
+        "reason_ml": "ഇവിടെ ഒരു തീയതിയോ സമയപരിധിയോ ബാധകമാണ്.",
+        "action_ml": "ഈ തീയതി കലണ്ടറിൽ ചേർത്ത് കുറച്ച് ദിവസം മുൻപ് ഓർമ്മപ്പെടുത്തൽ വയ്ക്കുക.",
         "attention_level": "deadline",
         "primary": [
             "on or before", "no later than", "not later than", "failing which",
@@ -196,6 +229,9 @@ RULES: List[Dict] = [
     {
         "category": "unusual_condition",
         "label": "One-sided condition",
+        "label_ml": "ഏകപക്ഷീയ വ്യവസ്ഥ",
+        "reason_ml": "ഈ വാക്യം ഒരു ഭാഗത്തിന് വിശാലമായ അധികാരം നൽകുന്നു അല്ലെങ്കിൽ ഒരു സംരക്ഷണം എടുത്തുകളയുന്നു.",
+        "action_ml": "ഇത് പരസ്പരമാക്കാൻ ആവശ്യപ്പെടുക, അല്ലെങ്കിൽ എഴുതി വിശദീകരണം വാങ്ങുക.",
         "attention_level": "unusual",
         "primary": [
             "sole discretion", "absolute discretion", "without assigning any reason",
@@ -236,9 +272,19 @@ _LEVEL_LABELS = {
     "info": "For information",
 }
 
+_LEVEL_LABELS_ML = {
+    "attention": "ശ്രദ്ധ ആവശ്യം",
+    "financial": "പണപരമായ വ്യവസ്ഥ",
+    "deadline": "പ്രധാന തീയതി",
+    "unusual": "അസാധാരണ വ്യവസ്ഥ",
+    "info": "വിവരത്തിന്",
+}
 
-def level_label(level: str) -> str:
-    return _LEVEL_LABELS.get(level, "Attention required")
+
+def level_label(level: str, language: str = "en") -> str:
+    table = _LEVEL_LABELS_ML if language == "ml" else _LEVEL_LABELS
+    fallback = "ശ്രദ്ധ ആവശ്യം" if language == "ml" else "Attention required"
+    return table.get(level, fallback)
 
 
 def _hits(haystack: str, phrases: Sequence[str]) -> List[str]:
@@ -256,8 +302,11 @@ def _confidence(rule: Dict, matched: List[str], support: List[str], text: str) -
     return "low"
 
 
-def _rule_reason(rule: Dict, matched: List[str]) -> str:
+def _rule_reason(rule: Dict, matched: List[str], language: str = "en") -> str:
     quoted = ", ".join('"%s"' % m for m in matched[:3])
+    if language == "ml":
+        reason = rule.get("reason_ml") or rule["reason"]
+        return "%s പൊരുത്തപ്പെട്ട വാചകം: %s." % (reason, quoted)
     return "%s Matched wording: %s." % (rule["reason"], quoted)
 
 
@@ -271,6 +320,7 @@ def detect_clauses(
     doc_type: str = "other",
     max_clauses: int = 25,
     max_per_category: int = MAX_PER_CATEGORY,
+    language: str = "en",
 ) -> List[Clause]:
     """Scan every segment against every rule.
 
@@ -314,14 +364,20 @@ def detect_clauses(
                 Clause(
                     id=next_id,
                     category=rule["category"],
-                    label=rule["label"],
+                    label=(rule.get("label_ml") or rule["label"])
+                    if language == "ml"
+                    else rule["label"],
                     attention_level=rule["attention_level"],
                     text=truncate(text, MAX_LEN),
                     page=segment.page,
-                    reason=_rule_reason(rule, matched),
+                    reason=_rule_reason(rule, matched, language),
                     confidence=_confidence(rule, matched, support, text),
                     matched_terms=matched[:4],
-                    suggested_action=rule["action"],
+                    suggested_action=(
+                        (rule.get("action_ml") or rule["action"])
+                        if language == "ml"
+                        else rule["action"]
+                    ),
                 )
             )
             next_id += 1
@@ -349,6 +405,30 @@ def detect_clauses(
     for position, clause in enumerate(kept, start=1):
         clause.id = position
     return kept
+
+
+_RULE_BY_CATEGORY = {rule["category"]: rule for rule in RULES}
+
+
+def localise_clause(clause: Clause, language: str = "en") -> Clause:
+    """Rewrite a clause's own wording in the requested language.
+
+    Clauses are created once, at upload, and reused when the language is
+    switched, so their label/reason/action have to be re-derived from the rule
+    rather than left in whatever language the analysis was run in.
+    """
+    rule = _RULE_BY_CATEGORY.get(clause.category)
+    if rule is None:
+        return clause
+    if language == "ml":
+        clause.label = rule.get("label_ml") or rule["label"]
+        clause.reason = _rule_reason(rule, clause.matched_terms, "ml")
+        clause.suggested_action = rule.get("action_ml") or rule["action"]
+    else:
+        clause.label = rule["label"]
+        clause.reason = _rule_reason(rule, clause.matched_terms)
+        clause.suggested_action = rule["action"]
+    return clause
 
 
 def clause_context(segments: List[Segment], clause: Clause) -> str:

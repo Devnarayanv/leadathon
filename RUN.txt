@@ -102,7 +102,7 @@ FULL RESET (everything, in order)
  5. IS IT ACTUALLY WORKING?
 ----------------------------------------------------------------
 Backend health :  curl http://localhost:8000/api/health
-API docs       :  http://localhost:8000/docs
+API docs       :  http://localhost:8000/docs  (set ENABLE_API_DOCS=true first)
 Ollama alive   :  curl http://localhost:11434/api/tags
 Models pulled  :  ollama list
 App            :  http://localhost:5173

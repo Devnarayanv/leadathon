@@ -82,7 +82,9 @@ export async function downloadCalendar({ filename, deadlines, reminderDays = 3 }
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  // Revoking synchronously can cancel the download in some browsers: give the
+  // navigation time to start, then release the blob.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 // Re-runs the type-specific pipeline under a corrected document type. Sends

@@ -52,6 +52,36 @@ const STRINGS = {
     warnings: "Notes about this analysis",
     retryAi: "Retry with AI",
     switching: "Updating explanations...",
+    writtenFromRules: "Written from rule output, not from the AI model.",
+    noSummary: "No summary was produced for this document.",
+    textReadBy: "Text read by",
+    pdfText: "PDF text layer",
+    pdfTextOcr: "PDF text + OCR",
+    uncertainTypeNote:
+      "Document type uncertain. The facts are still read directly from the text, but the field names come from the closest matching type.",
+    ocrNote:
+      "Some pages had no selectable text, so OCR was used. OCR can misread characters — check any amount or date against the original.",
+    nothingFlagged: "Nothing flagged",
+    attentionSourceNote:
+      "Attention indicators from the rule engine — not legal advice, and not a judgment that anything is illegal.",
+    openFindings: "Open findings",
+    readByRules: "Read from the text by rules",
+    showSource: "source",
+    hideSource: "hide",
+    uncertainWord: "uncertain",
+    offlineVoice: "offline voice",
+    noVoice:
+      "No voice is available for this language on this machine.",
+    noVoiceShort: "No %s voice on this machine.",
+    browserNoSpeech: "This browser does not support speech.",
+    analysedIn: "analysed in",
+    footerNote:
+      "Doc Decode flags wording that deserves attention and explains it in simpler words. It does not decide whether anything is legal, valid or fair, and it can miss clauses. Check the original document and take professional advice before you sign, pay or reply.",
+    askIntro:
+      "Answers come only from your document's text. If it is not in there, the answer says so.",
+    notInDocument: "not found in document",
+    defaultVoice: "Default voice",
+    voice: "Voice",
   },
   ml: {
     tagline: "ഒപ്പിടുന്നതിന് മുൻപ് മനസ്സിലാക്കുക.",
@@ -104,12 +134,69 @@ const STRINGS = {
     warnings: "ഈ പരിശോധനയെക്കുറിച്ചുള്ള കുറിപ്പുകൾ",
     retryAi: "AI ഉപയോഗിച്ച് വീണ്ടും",
     switching: "വിശദീകരണം പുതുക്കുന്നു...",
+    writtenFromRules:
+      "AI മോഡലിൽ നിന്നല്ല, ചട്ട എൻജിന്റെ ഫലത്തിൽ നിന്ന് എഴുതിയത്.",
+    noSummary: "ഈ രേഖയ്ക്ക് ചുരുക്കം തയ്യാറാക്കിയിട്ടില്ല.",
+    textReadBy: "വാചകം വായിച്ചത്",
+    pdfText: "PDF വാചകം",
+    pdfTextOcr: "PDF വാചകം + OCR",
+    uncertainTypeNote:
+      "രേഖയുടെ തരം ഉറപ്പില്ല. വിവരങ്ങൾ നേരിട്ട് വാചകത്തിൽ നിന്ന് തന്നെ വായിക്കുന്നു, എന്നാൽ ഫീൽഡ് പേരുകൾ ഏറ്റവും അടുത്ത തരത്തിൽ നിന്നാണ്.",
+    ocrNote:
+      "ചില പേജുകളിൽ തിരഞ്ഞെടുക്കാവുന്ന വാചകം ഇല്ലാത്തതിനാൽ OCR ഉപയോഗിച്ചു. OCR അക്ഷരങ്ങൾ തെറ്റായി വായിക്കാം — തുകയും തീയതിയും യഥാർത്ഥ രേഖയുമായി ഒത്തുനോക്കുക.",
+    nothingFlagged: "ഒന്നും അടയാളപ്പെടുത്തിയില്ല",
+    attentionSourceNote:
+      "ചട്ട എൻജിന്റെ ശ്രദ്ധാ സൂചനകൾ — നിയമോപദേശമല്ല, എന്തെങ്കിലും നിയമവിരുദ്ധമാണെന്ന വിധിയുമല്ല.",
+    openFindings: "കണ്ടെത്തലുകൾ തുറക്കുക",
+    readByRules: "ചട്ടങ്ങൾ പ്രകാരം വാചകത്തിൽ നിന്ന് വായിച്ചത്",
+    showSource: "ഉറവിടം",
+    hideSource: "മറയ്ക്കുക",
+    uncertainWord: "ഉറപ്പില്ല",
+    offlineVoice: "ഓഫ്‌ലൈൻ ശബ്ദം",
+    noVoice: "ഈ ഭാഷയ്ക്ക് ഈ ഉപകരണത്തിൽ ശബ്ദം ലഭ്യമല്ല.",
+    noVoiceShort: "ഈ ഉപകരണത്തിൽ %s ശബ്ദം ഇല്ല.",
+    browserNoSpeech: "ഈ ബ്രൗസർ സംസാരം പിന്തുണയ്ക്കുന്നില്ല.",
+    analysedIn: "വിശകലനം ചെയ്തത്",
+    footerNote:
+      "ശ്രദ്ധ അർഹിക്കുന്ന വാചകങ്ങൾ Doc Decode അടയാളപ്പെടുത്തി ലളിതമായി വിശദീകരിക്കുന്നു. എന്തെങ്കിലും നിയമപരമാണോ ശരിയാണോ ന്യായമാണോ എന്ന് ഇത് തീരുമാനിക്കുന്നില്ല; ചില വാക്യങ്ങൾ വിട്ടുപോകാം. ഒപ്പിടുന്നതിനോ പണം നൽകുന്നതിനോ മറുപടി നൽകുന്നതിനോ മുൻപ് യഥാർത്ഥ രേഖ പരിശോധിക്കുകയും വിദഗ്ധാഭിപ്രായം തേടുകയും ചെയ്യുക.",
+    askIntro:
+      "ഉത്തരങ്ങൾ നിങ്ങളുടെ രേഖയിലെ വാചകത്തിൽ നിന്ന് മാത്രം. അതിൽ ഇല്ലെങ്കിൽ അങ്ങനെ തന്നെ പറയും.",
+    notInDocument: "രേഖയിൽ കണ്ടെത്തിയില്ല",
+    defaultVoice: "സ്വതവേയുള്ള ശബ്ദം",
+    voice: "ശബ്ദം",
   },
 };
 
 export function t(language, key) {
   const pack = STRINGS[language] ?? STRINGS.en;
   return pack[key] ?? STRINGS.en[key] ?? key;
+}
+
+// Document type names for the type the backend reports. The backend also
+// localises its own copy, but a language switch reuses the existing result, so
+// the label has to be resolvable here too.
+export const DOC_TYPES = {
+  invoice: { en: "Invoice", ml: "ഇൻവോയ്സ്" },
+  purchase_order: { en: "Purchase order", ml: "പർച്ചേസ് ഓർഡർ" },
+  tender: { en: "Tender notice", ml: "ടെൻഡർ അറിയിപ്പ്" },
+  gst_notice: { en: "GST notice", ml: "GST അറിയിപ്പ്" },
+  rental_agreement: { en: "Rental agreement", ml: "വാടക കരാർ" },
+  loan_agreement: { en: "Loan document", ml: "വായ്പ രേഖ" },
+  contract: { en: "Contract / service agreement", ml: "കരാർ / സേവന കരാർ" },
+  insurance: { en: "Insurance policy", ml: "ഇൻഷുറൻസ് പോളിസി" },
+  hospital_bill: { en: "Hospital bill", ml: "ആശുപത്രി ബിൽ" },
+  financial_statement: { en: "Financial statement", ml: "സാമ്പത്തിക പ്രസ്താവന" },
+  business_license: { en: "Business licence / registration", ml: "വ്യാപാര ലൈസൻസ് / രജിസ്ട്രേഷൻ" },
+  legal_notice: { en: "Legal notice", ml: "നിയമ അറിയിപ്പ്" },
+  government_notice: { en: "Government notice", ml: "സർക്കാർ അറിയിപ്പ്" },
+  other: { en: "Other / uncategorised", ml: "മറ്റുള്ളവ / വർഗ്ഗീകരിക്കാത്തത്" },
+};
+
+// `fallback` is the backend's own label, used only for a type we do not know.
+export function docTypeLabel(docType, fallback, language) {
+  const entry = DOC_TYPES[docType];
+  if (!entry) return fallback || docType || "";
+  return entry[language] ?? entry.en;
 }
 
 export const ATTENTION_LABELS = {

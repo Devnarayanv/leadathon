@@ -9,7 +9,7 @@ const FAMILIES = [
   "rental and loan agreements",
   "insurance policies and contracts",
   "tenders and GST notices",
-  "invoices and purchase orders",
+  "bills, invoices and purchase orders",
 ];
 
 const SAMPLE_LIMIT = 6;
@@ -105,9 +105,11 @@ export default function Home({
             Every document, decoded.
           </h1>
           <p className="mt-5 max-w-xl text-[0.98rem] leading-relaxed text-ink-soft">
-            Drop in a contract, notice or bill. Doc Decode pulls out the amounts, dates
-            and clauses worth a second look, shows the original sentence beside each
-            one, and never sends the file off this machine.
+            Contracts, loans and notices are written to be enforceable, not understood.
+            Drop one in before you sign: Doc Decode pulls out the amounts, dates and
+            clauses worth a second look, shows the original sentence beside each one,
+            explains it in English or Malayalam, and never sends the file off this
+            machine.
           </p>
 
           <ul className="mt-8 grid max-w-xl gap-x-5 gap-y-5 sm:grid-cols-3">

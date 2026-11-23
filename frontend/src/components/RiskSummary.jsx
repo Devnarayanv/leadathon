@@ -38,7 +38,7 @@ export default function RiskSummary({ clauses, counts, language, onJump }) {
                   type="button"
                   onClick={() => onJump?.(level)}
                   className={`chip ${style.chip} !px-2.5 !py-1 transition-colors hover:opacity-85`}
-                  title="Open findings"
+                  title={t(language, "openFindings")}
                 >
                   <Icon size={12} />
                   {ATTENTION_LABELS[language]?.[level] ?? level}
@@ -48,13 +48,12 @@ export default function RiskSummary({ clauses, counts, language, onJump }) {
             })}
             {!levels.length && (
               <span className="chip bg-good-soft !px-2.5 !py-1 text-good">
-                Nothing flagged
+                {t(language, "nothingFlagged")}
               </span>
             )}
           </div>
           <p className="text-[0.72rem] leading-relaxed text-ink-faint">
-            Attention indicators from the rule engine &mdash; not legal advice, and not a
-            judgment that anything is illegal.
+            {t(language, "attentionSourceNote")}
           </p>
         </div>
       </div>

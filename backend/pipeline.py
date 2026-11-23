@@ -13,6 +13,7 @@ import document_classifier
 import fact_extractor
 import findings as finding_builder
 import line_items as item_reader
+import ml_text
 import money
 import ollama_service
 import pdf_reader
@@ -66,15 +67,20 @@ def sniff_kind(data: bytes) -> Optional[str]:
     return None
 
 
+def check_size(size: int) -> None:
+    """Raise UploadRejected when a declared size exceeds the configured limit."""
+    if size > config.MAX_UPLOAD_BYTES:
+        raise UploadRejected(
+            "This file is %.1f MB. The limit is %d MB (MAX_UPLOAD_MB in .env)."
+            % (size / (1024 * 1024), config.MAX_UPLOAD_MB)
+        )
+
+
 def validate_upload(filename: str, content_type: str, data: bytes) -> str:
     """Return "pdf" or "image". Raise UploadRejected with a readable reason."""
     if not data:
         raise UploadRejected("The uploaded file is empty.")
-    if len(data) > config.MAX_UPLOAD_BYTES:
-        raise UploadRejected(
-            "This file is %.1f MB. The limit is %d MB (MAX_UPLOAD_MB in .env)."
-            % (len(data) / (1024 * 1024), config.MAX_UPLOAD_MB)
-        )
+    check_size(len(data))
 
     extension = _extension(filename)
     if extension not in config.ALLOWED_EXTENSIONS:
@@ -123,10 +129,12 @@ def analyse(
     warnings: List[str] = list(info["warnings"])
 
     stages: List[str] = ["Text read (%s)" % ", ".join(sorted({p.source for p in pages}))]
-    classification = document_classifier.classify(full_text)
+    classification = document_classifier.classify(full_text, language)
     stages.append("Document type classified")
     facts = fact_extractor.extract_facts(segments, classification.doc_type)
-    clauses = clause_detector.detect_clauses(segments, classification.doc_type)
+    clauses = clause_detector.detect_clauses(
+        segments, classification.doc_type, language=language
+    )
     deadlines = deadline_extractor.extract_deadlines(segments)
     stages += ["Facts extracted", "Clauses detected", "Deadlines found"]
 
@@ -134,11 +142,15 @@ def analyse(
         facts, line_items, requirements, verification, findings, actions, type_stages,
     ) = _type_specific(classification.doc_type, pages, facts, clauses, deadlines)
     stages += type_stages
+    facts = _localise_facts(facts, language)
 
-    doc_label = classification.label if classification.certain else "unknown / uncertain"
+    if classification.certain:
+        doc_label = classification.label
+    else:
+        doc_label = "ഉറപ്പില്ലാത്തത്" if language == "ml" else "unknown / uncertain"
 
     status = ollama_service.check_status(model=config.model_for(language))
-    summary = ai_explainer.rule_summary(doc_label, facts, clauses)
+    summary = ai_explainer.rule_summary(doc_label, facts, clauses, language)
     summary_source = "rules"
 
     if use_ai and clauses and status.reachable and status.model_available:
@@ -152,15 +164,31 @@ def analyse(
         warnings.extend(summary_warnings)
     else:
         if not use_ai:
-            warnings.append("AI explanations were switched off for this analysis.")
+            warnings.append(
+                "ഈ പരിശോധനയ്ക്ക് AI വിശദീകരണങ്ങൾ ഓഫ് ചെയ്തിരിക്കുന്നു."
+                if language == "ml"
+                else "AI explanations were switched off for this analysis."
+            )
         elif not (status.reachable and status.model_available):
-            warnings.append(status.message)
+            if language == "ml":
+                warnings.append(
+                    "Ollama ലഭ്യമല്ല അല്ലെങ്കിൽ \"%s\" മോഡൽ ഇൻസ്റ്റാൾ "
+                    "ചെയ്തിട്ടില്ല. അതിനാൽ വിശദീകരണങ്ങൾ ചട്ടങ്ങളിൽ നിന്ന് "
+                    "മാത്രം നൽകുന്നു. Ollama ആരംഭിച്ച് `ollama pull %s` "
+                    "ചെയ്താൽ AI വിശദീകരണം ലഭിക്കും."
+                    % (config.model_for(language), config.model_for(language))
+                )
+            else:
+                warnings.append(status.message)
         for clause in clauses:
             clause.explanation = _rule_only_explanation(clause, language)
 
     if not full_text.strip():
         warnings.append(
-            "Nothing could be analysed because no text was extracted from the file."
+            "ഫയലിൽ നിന്ന് വാചകം എടുക്കാനായില്ലാത്തതിനാൽ ഒന്നും വിശകലനം "
+            "ചെയ്യാനായില്ല."
+            if language == "ml"
+            else "Nothing could be analysed because no text was extracted from the file."
         )
     stages.append("Explanations written" if summary_source == "llm" else "Rule explanations written")
 
@@ -181,7 +209,7 @@ def analyse(
         page_count=info.get("total_pages") or len(pages),
         classification=classification,
         language=language,
-        doc_type_options=document_classifier.options(),
+        doc_type_options=document_classifier.options(language),
         extraction_sources=sorted({p.source for p in pages}),
         ocr_used=info["ocr_used"],
         ocr_available=info["ocr_available"],
@@ -213,6 +241,7 @@ def _type_specific(
     facts: List[Fact],
     clauses: List[Clause],
     deadlines: List[Deadline],
+    language: str = "en",
 ) -> Tuple[
     List[Fact], List[LineItem], List[TenderRequirement], VerificationReport,
     List[Finding], List[ActionItem], List[str],
@@ -248,7 +277,9 @@ def _type_specific(
     if report.applicable:
         stages.append("Arithmetic verified")
 
-    found, actions = finding_builder.build(doc_type, merged, deadlines, clauses, report)
+    found, actions = finding_builder.build(
+        doc_type, merged, deadlines, clauses, report, language
+    )
     stages.append("Findings and actions built")
     return merged, line_items, requirements, report, found, actions, stages
 
@@ -266,16 +297,17 @@ def reclassify(
     """
     full_text = "\n\n".join(p.text for p in pages if p.text.strip())
     segments: List[Segment] = build_segments((p.page, p.text) for p in pages)
-    classification = document_classifier.forced(doc_type, full_text)
+    classification = document_classifier.forced(doc_type, full_text, language)
     facts = fact_extractor.extract_facts(segments, doc_type)
-    clauses = clause_detector.detect_clauses(segments, doc_type)
+    clauses = clause_detector.detect_clauses(segments, doc_type, language=language)
     deadlines = deadline_extractor.extract_deadlines(segments)
     for clause in clauses:
         clause.explanation = _rule_only_explanation(clause, language)
 
     facts, line_items, requirements, report, findings, actions, _stages = _type_specific(
-        doc_type, pages, facts, clauses, deadlines
+        doc_type, pages, facts, clauses, deadlines, language
     )
+    facts = _localise_facts(facts, language)
     return ReclassifyResponse(
         classification=classification,
         facts=facts,
@@ -287,8 +319,22 @@ def reclassify(
         actions=actions,
         requirements=requirements,
         attention_counts=clause_detector.attention_counts(clauses),
-        warnings=["Re-run under the type you chose. Explanations are rule-based."],
+        warnings=[
+            "നിങ്ങൾ തിരഞ്ഞെടുത്ത തരത്തിൽ വീണ്ടും പരിശോധിച്ചു. വിശദീകരണങ്ങൾ "
+            "ചട്ടങ്ങളെ അടിസ്ഥാനമാക്കിയുള്ളതാണ്."
+            if language == "ml"
+            else "Re-run under the type you chose. Explanations are rule-based."
+        ],
     )
+
+
+def _localise_facts(facts: List[Fact], language: str) -> List[Fact]:
+    """Translate the rule engine's field names to the reader's language."""
+    if language != "ml":
+        return facts
+    for fact in facts:
+        fact.label = ml_text.label(fact.label, language)
+    return facts
 
 
 def _rule_only_explanation(clause, language: str):

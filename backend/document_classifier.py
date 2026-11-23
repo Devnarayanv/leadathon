@@ -14,6 +14,7 @@ from utils import normalise, normalise_phrase
 RULES: Dict[str, Dict] = {
     "invoice": {
         "label": "Invoice",
+        "label_ml": "ഇൻവോയ്സ്",
         "terms": [
             ("tax invoice", 7),
             ("invoice no", 5),
@@ -43,6 +44,7 @@ RULES: Dict[str, Dict] = {
     },
     "purchase_order": {
         "label": "Purchase order",
+        "label_ml": "പർച്ചേസ് ഓർഡർ",
         "terms": [
             ("purchase order", 8),
             ("po no", 5),
@@ -61,6 +63,7 @@ RULES: Dict[str, Dict] = {
     },
     "tender": {
         "label": "Tender notice",
+        "label_ml": "ടെൻഡർ അറിയിപ്പ്",
         "terms": [
             ("tender notice", 8),
             ("e-tender", 7),
@@ -92,6 +95,7 @@ RULES: Dict[str, Dict] = {
     },
     "gst_notice": {
         "label": "GST notice",
+        "label_ml": "GST അറിയിപ്പ്",
         "terms": [
             ("gst notice", 8),
             ("goods and services tax", 6),
@@ -118,6 +122,7 @@ RULES: Dict[str, Dict] = {
     },
     "rental_agreement": {
         "label": "Rental agreement",
+        "label_ml": "വാടക കരാർ",
         "terms": [
             ("rental agreement", 6),
             ("lease agreement", 6),
@@ -146,6 +151,7 @@ RULES: Dict[str, Dict] = {
     },
     "loan_agreement": {
         "label": "Loan document",
+        "label_ml": "വായ്പ രേഖ",
         "terms": [
             ("loan agreement", 6),
             ("sanction letter", 5),
@@ -176,6 +182,7 @@ RULES: Dict[str, Dict] = {
     },
     "contract": {
         "label": "Contract / service agreement",
+        "label_ml": "കരാർ / സേവന കരാർ",
         "terms": [
             ("service agreement", 7),
             ("this agreement is made", 6),
@@ -200,6 +207,7 @@ RULES: Dict[str, Dict] = {
     },
     "insurance": {
         "label": "Insurance policy",
+        "label_ml": "ഇൻഷുറൻസ് പോളിസി",
         "terms": [
             ("insurance policy", 8),
             ("policy schedule", 7),
@@ -228,6 +236,7 @@ RULES: Dict[str, Dict] = {
     },
     "hospital_bill": {
         "label": "Hospital bill",
+        "label_ml": "ആശുപത്രി ബിൽ",
         "terms": [
             ("hospital", 4),
             ("discharge summary", 5),
@@ -254,6 +263,7 @@ RULES: Dict[str, Dict] = {
     },
     "financial_statement": {
         "label": "Financial statement",
+        "label_ml": "സാമ്പത്തിക പ്രസ്താവന",
         "terms": [
             ("balance sheet", 8),
             ("profit and loss", 8),
@@ -274,6 +284,7 @@ RULES: Dict[str, Dict] = {
     },
     "business_license": {
         "label": "Business licence / registration",
+        "label_ml": "വ്യാപാര ലൈസൻസ് / രജിസ്ട്രേഷൻ",
         "terms": [
             ("certificate of registration", 7),
             ("trade licence", 8),
@@ -294,6 +305,7 @@ RULES: Dict[str, Dict] = {
     },
     "legal_notice": {
         "label": "Legal notice",
+        "label_ml": "നിയമ അറിയിപ്പ്",
         "terms": [
             ("legal notice", 8),
             ("notice to quit", 7),
@@ -321,6 +333,7 @@ RULES: Dict[str, Dict] = {
     },
     "government_notice": {
         "label": "Government notice",
+        "label_ml": "സർക്കാർ അറിയിപ്പ്",
         "terms": [
             ("public notice", 5),
             ("show cause notice", 6),
@@ -350,6 +363,7 @@ RULES: Dict[str, Dict] = {
 }
 
 OTHER_LABEL = "Other / uncategorised"
+OTHER_LABEL_ML = "മറ്റുള്ളവ / വർഗ്ഗീകരിക്കാത്തത്"
 
 # Below this score the type is reported as uncertain.
 CERTAIN_SCORE = 8
@@ -357,17 +371,26 @@ CERTAIN_SCORE = 8
 CERTAIN_MARGIN = 3
 
 
-def label_for(doc_type: str) -> str:
-    if doc_type == "other":
-        return OTHER_LABEL
-    return RULES.get(doc_type, {}).get("label", OTHER_LABEL)
+def _label_of(doc_type: str, language: str = "en") -> str:
+    if doc_type == "other" or doc_type not in RULES:
+        return OTHER_LABEL_ML if language == "ml" else OTHER_LABEL
+    rule = RULES[doc_type]
+    if language == "ml":
+        return rule.get("label_ml") or rule["label"]
+    return rule["label"]
 
 
-def options() -> List[DocTypeOption]:
+def label_for(doc_type: str, language: str = "en") -> str:
+    return _label_of(doc_type, language)
+
+
+def options(language: str = "en") -> List[DocTypeOption]:
     """Every type the user can pick from when correcting a classification."""
-    items = [DocTypeOption(key=key, label=rule["label"]) for key, rule in RULES.items()]
+    items = [
+        DocTypeOption(key=key, label=_label_of(key, language)) for key in RULES
+    ]
     items.sort(key=lambda option: option.label)
-    items.append(DocTypeOption(key="other", label=OTHER_LABEL))
+    items.append(DocTypeOption(key="other", label=_label_of("other", language)))
     return items
 
 
@@ -389,59 +412,88 @@ def score_types(text: str) -> List[Tuple[str, int, List[str]]]:
     return results
 
 
-def _reason(matched: List[str], score: int) -> str:
+def _reason(matched: List[str], score: int, language: str = "en") -> str:
     if not matched:
-        return "No type-specific wording was found in the extracted text."
+        return (
+            "രേഖയിലെ വാചകത്തിൽ തരം സൂചിപ്പിക്കുന്ന പദങ്ങൾ കണ്ടെത്തിയില്ല."
+            if language == "ml"
+            else "No type-specific wording was found in the extracted text."
+        )
     shown = ", ".join('"%s"' % term for term in matched[:4])
     more = " and %d more term(s)" % (len(matched) - 4) if len(matched) > 4 else ""
+    if language == "ml":
+        more_ml = " കൂടാതെ %d പദങ്ങൾ" % (len(matched) - 4) if len(matched) > 4 else ""
+        return "രേഖയിലെ വാചകത്തിൽ %s%s കണ്ടെത്തി (സ്കോർ %d)." % (shown, more_ml, score)
     return "Matched %s%s in the document text (score %d)." % (shown, more, score)
 
 
-def classify(text: str) -> Classification:
+def classify(text: str, language: str = "en") -> Classification:
+    uncertain_label = (
+        "രേഖയുടെ തരം ഉറപ്പില്ല" if language == "ml" else "Document type uncertain"
+    )
     if not text.strip():
         return Classification(
             doc_type="other",
-            label="Document type uncertain",
+            label=uncertain_label,
             certain=False,
             score=0,
             matched_terms=[],
-            reason="No text could be extracted, so there was nothing to classify.",
+            reason=(
+                "വാചകം എടുക്കാനായില്ല, അതിനാൽ വർഗ്ഗീകരിക്കാൻ ഒന്നുമില്ലായിരുന്നു."
+                if language == "ml"
+                else "No text could be extracted, so there was nothing to classify."
+            ),
         )
 
     ranked = score_types(text)
     if not ranked:
         return Classification(
             doc_type="other",
-            label="Document type uncertain",
+            label=uncertain_label,
             certain=False,
             score=0,
             matched_terms=[],
-            reason=_reason([], 0),
+            reason=_reason([], 0, language),
         )
 
     doc_type, score, matched = ranked[0]
     runner_up_key = ranked[1][0] if len(ranked) > 1 else None
     runner_up = ranked[1][1] if len(ranked) > 1 else 0
     certain = score >= CERTAIN_SCORE and (score - runner_up) >= CERTAIN_MARGIN
-    label = RULES[doc_type]["label"]
-    reason = _reason(matched, score)
+    label = _label_of(doc_type, language)
+    reason = _reason(matched, score, language)
     if not certain:
         if runner_up_key and score - runner_up < CERTAIN_MARGIN:
-            reason += " %s scored %d, which is too close to call." % (
-                RULES[runner_up_key]["label"],
-                runner_up,
-            )
+            if language == "ml":
+                reason += " %s %d സ്കോർ നേടി, വ്യത്യാസം വളരെ കുറവാണ്." % (
+                    _label_of(runner_up_key, language),
+                    runner_up,
+                )
+            else:
+                reason += " %s scored %d, which is too close to call." % (
+                    RULES[runner_up_key]["label"],
+                    runner_up,
+                )
         else:
-            reason += " That is below the confidence threshold of %d." % CERTAIN_SCORE
+            reason += (
+                " ഇത് %d എന്ന വിശ്വാസ്യതാ പരിധിയിൽ താഴെയാണ്." % CERTAIN_SCORE
+                if language == "ml"
+                else " That is below the confidence threshold of %d." % CERTAIN_SCORE
+            )
+        uncertain = (
+            "രേഖയുടെ തരം ഉറപ്പില്ല (ഏറ്റവും അടുത്തത്: %s)" % label
+            if language == "ml"
+            else "Document type uncertain (closest match: %s)" % label.lower()
+        )
         return Classification(
             doc_type=doc_type,
-            label="Document type uncertain (closest match: %s)" % label.lower(),
+            label=uncertain,
             certain=False,
             score=score,
             matched_terms=matched[:8],
             reason=reason,
             runner_up=runner_up_key,
-            runner_up_label=RULES[runner_up_key]["label"] if runner_up_key else None,
+            runner_up_label=_label_of(runner_up_key, language) if runner_up_key else None,
         )
     return Classification(
         doc_type=doc_type,
@@ -451,21 +503,25 @@ def classify(text: str) -> Classification:
         matched_terms=matched[:8],
         reason=reason,
         runner_up=runner_up_key,
-        runner_up_label=RULES[runner_up_key]["label"] if runner_up_key else None,
+        runner_up_label=_label_of(runner_up_key, language) if runner_up_key else None,
     )
 
 
-def forced(doc_type: str, text: str) -> Classification:
+def forced(doc_type: str, text: str, language: str = "en") -> Classification:
     """Classification for a type the user picked by hand."""
     ranked = {key: (score, matched) for key, score, matched in score_types(text)}
     score, matched = ranked.get(doc_type, (0, []))
+    label = label_for(doc_type, language)
+    if language == "ml":
+        reason = "രേഖയുടെ തരം നിങ്ങൾ തിരഞ്ഞെടുത്തതാണ്. %s വിശകലനം പ്രയോഗിച്ചു." % label
+    else:
+        reason = "Document type set by you. The %s analysis pipeline was applied." % label.lower()
     return Classification(
         doc_type=doc_type,
-        label=label_for(doc_type),
+        label=label,
         certain=True,
         score=score,
         matched_terms=matched[:8],
-        reason="Document type set by you. The %s analysis pipeline was applied."
-        % label_for(doc_type).lower(),
+        reason=reason,
         user_set=True,
     )

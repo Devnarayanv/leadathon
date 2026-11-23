@@ -21,8 +21,50 @@ rewrite is missing rather than faking one.
 
 ---
 
+## The problem
+
+A rental agreement, a loan sanction letter, a hospital bill or a government
+notice is written to be enforceable, not understood. The person signing it is
+usually reading it for the first time, on a phone, in a second language, with no
+one to ask. Professional help exists, but it costs more than the dispute and is
+concentrated in cities and in English.
+
+Three things go wrong as a result. People sign terms they would have questioned
+(an automatic renewal, a 10% late fee, a lock-in with no exit), they miss the one
+date that carries a penalty, and they cannot check the arithmetic on a bill that
+may simply be wrong.
+
+---
+
+## Impact
+
+Doc Decode targets the moment before the signature, on the device already in the
+person's hand:
+
+- **Comprehension** — every amount, date and clause is shown beside the original
+  sentence and its page, so the reading can be checked rather than trusted.
+- **Language** — the same document works in English and in Malayalam, including
+  Malayalam scans read by OCR and spoken aloud by a local speech engine.
+- **Action** — deadlines the document actually states become a calendar file,
+  and only after the person has ticked them off.
+- **Access** — the whole pipeline runs offline on a laptop. No account, no
+  upload, no per-page fee and no document leaving the machine, which is what
+  makes it practical for legal-aid clinics, panchayat offices and college
+  legal-literacy programmes that cannot send client papers to a cloud API.
+- **Trust** — Python rules decide what matters and the model only rewrites it,
+  so one document always produces the same findings and nothing is invented.
+
+The prototype is measured end to end on its own demo documents (see
+[Measured on a real machine](#measured-on-a-real-machine)): a two-page loan
+agreement is read, classified, verified and analysed in about two seconds with
+the AI step switched off.
+
+---
+
 ## Contents
 
+- [The problem](#the-problem)
+- [Impact](#impact)
 - [What it does](#what-it-does)
 - [Architecture](#architecture)
 - [Technology stack](#technology-stack)
@@ -316,7 +358,7 @@ Everything lives in `.env` at the project root. Nothing is hardcoded.
 | `MAX_CLAUSE_CHARS` | `700` | characters sent per clause |
 | `MAX_QA_CONTEXT_CHARS` | `3500` | characters of context sent per question |
 | `CORS_ORIGINS` | localhost dev ports | allowed browser origins |
-| `LOG_DOCUMENT_TEXT` | `false` | leave false; true would log document text |
+| `ENABLE_API_DOCS` | `false` | serve the interactive schema at `/docs` |
 
 ---
 
@@ -347,7 +389,8 @@ The Vite dev server proxies `/api` to `http://127.0.0.1:8000`, so the browser on
 ever talks to one origin.
 
 Check the backend by itself at <http://localhost:8000/api/health>, or read the
-auto-generated API docs at <http://localhost:8000/docs>.
+auto-generated API docs at <http://localhost:8000/docs> once you set
+`ENABLE_API_DOCS=true` in `.env`. They are off by default.
 
 The status pill in the top right of the app shows the real state of Ollama and
 OCR. Click it for the full message and the exact commands to fix whatever is

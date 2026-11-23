@@ -8,9 +8,11 @@ __pycache__/
 node_modules/
 frontend/dist/
 
-# Local configuration (keep .env.example in git)
+# Local configuration (never commit env files)
 .env
 backend/.env
+.env.example
+.env.*
 
 # Editors / OS
 .vscode/

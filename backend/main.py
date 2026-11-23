@@ -1,16 +1,20 @@
 """Doc Decode FastAPI app.
 
 Uploads are held in memory for the length of one request and never written to
-disk, so there is no stored copy to delete afterwards. Document text is not
-logged (see LOG_DOCUMENT_TEXT in config).
+disk, so there is no stored copy to delete afterwards. Document text is never
+logged. Oversized uploads are refused from their declared size before the bytes
+are read.
 """
 import logging
+import re
 import threading
+from contextlib import asynccontextmanager
 from typing import List
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 import ai_explainer
 import calendar_export
@@ -49,14 +53,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger("doc_decode")
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Preload the Ollama model in the background as the server starts.
+
+    The server is usable immediately; this only means the first upload does not
+    pay the cold model load. It never fails startup if Ollama is absent.
+    """
+    thread = threading.Thread(target=ollama_service.warm_up, daemon=True)
+    thread.start()
+    yield
+
+
 app = FastAPI(
     title="Doc Decode API",
     version="1.0.0",
     description="Local document understanding. Rule engine plus a local Ollama model.",
-    # Disable the interactive docs in production to reduce attack surface.
-    # They are still available during development (uvicorn --reload).
-    docs_url="/docs",
+    # Off by default: the schema browser is convenient in development but is
+    # also a map of the API, so it is opt-in through ENABLE_API_DOCS.
+    docs_url="/docs" if config.ENABLE_API_DOCS else None,
     redoc_url=None,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -71,8 +88,6 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Security headers — defence in depth even on localhost.
 # ---------------------------------------------------------------------------
-from starlette.middleware.base import BaseHTTPMiddleware
-
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
@@ -95,17 +110,6 @@ async def upload_rejected_handler(_request: Request, exc: pipeline.UploadRejecte
 @app.exception_handler(pdf_reader.UnreadableDocument)
 async def unreadable_handler(_request: Request, exc: pdf_reader.UnreadableDocument):
     return JSONResponse(status_code=422, content={"detail": str(exc)})
-
-
-@app.on_event("startup")
-def preload_model() -> None:
-    """Load the Ollama model in the background as the server starts.
-
-    The server is usable immediately; this only means the first upload does not
-    pay the cold model load. It never fails startup if Ollama is absent.
-    """
-    thread = threading.Thread(target=ollama_service.warm_up, daemon=True)
-    thread.start()
 
 
 @app.get("/api/health")
@@ -149,11 +153,21 @@ def health() -> dict:
 
 @app.post("/api/analyze", response_model=AnalysisResult)
 async def analyze(
+    request: Request,
     file: UploadFile = File(...),
     language: str = Form("en"),
     use_ai: bool = Form(True),
 ) -> AnalysisResult:
     language = language if language in ("en", "ml") else "en"
+    # Refuse an oversized upload from its declared size before buffering it.
+    # Reading first would commit exactly the memory the limit exists to protect.
+    # The multipart envelope adds a few hundred bytes around the file itself; the
+    # exact size check below is what actually enforces the limit.
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit():
+        pipeline.check_size(max(0, int(declared) - 512))
+    if file.size is not None:
+        pipeline.check_size(file.size)
     data = await file.read()
     try:
         return pipeline.analyse(
@@ -299,8 +313,7 @@ def demo_list() -> List[DemoDocument]:
 def demo_file(demo_id: str) -> Response:
     """Serve an allowlisted demo PDF. The client sends an id, never a path."""
     # Sanitise the demo_id: only alphanumeric, hyphens and underscores.
-    import re as _re
-    if not _re.fullmatch(r"[A-Za-z0-9_-]{1,80}", demo_id):
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", demo_id):
         raise HTTPException(status_code=400, detail="Invalid demo id.")
     data = demo_catalog.file_bytes(demo_id)
     name = demo_catalog.filename_for(demo_id)

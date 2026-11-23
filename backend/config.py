@@ -78,7 +78,7 @@ OCR_GOOD_ENOUGH_SCORE = _int("OCR_GOOD_ENOUGH_SCORE", 900)
 # one. 1.0 would let a tie through; a tie means the extra script added nothing.
 OCR_LANG_SWITCH_MARGIN = float(os.getenv("OCR_LANG_SWITCH_MARGIN", "1.08") or 1.08)
 TESSERACT_CMD = os.getenv("TESSERACT_CMD", "").strip()
-OCR_LANGS = os.getenv("OCR_LANGS", "eng").strip()
+OCR_LANGS = os.getenv("OCR_LANGS", "eng+mal").strip()
 
 # Extra language packs (for example Malayalam) can live in a project folder, so
 # no administrator rights are needed to add one. If TESSDATA_DIR is unset and
@@ -135,6 +135,6 @@ ALLOWED_MIME_TYPES = {
     "image/png",
 }
 
-# Set true only if you want extracted text echoed into server logs. Off by default:
-# documents are sensitive.
-LOG_DOCUMENT_TEXT = _bool("LOG_DOCUMENT_TEXT", False)
+# Expose the interactive API schema at /docs. Off by default so a deployment
+# does not publish a map of every endpoint and payload.
+ENABLE_API_DOCS = _bool("ENABLE_API_DOCS", False)

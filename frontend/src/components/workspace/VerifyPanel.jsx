@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { GitCompareArrows, Loader2, Upload } from "lucide-react";
 import { Empty, Panel, SourceText, StatusChip, ws } from "./common.jsx";
 import { COMPARE_RESULT, VERIFY, EVIDENCE } from "../../labels.js";
+import { docTypeLabel } from "../../i18n.js";
 
 function CheckRow({ check, language }) {
   const values = [
@@ -192,7 +193,7 @@ export default function VerifyPanel({
           >
             {options.map((option) => (
               <option key={option.key} value={option.key}>
-                {option.label}
+                {docTypeLabel(option.key, option.label, language)}
               </option>
             ))}
           </select>

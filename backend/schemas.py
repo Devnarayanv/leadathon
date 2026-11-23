@@ -375,12 +375,26 @@ class EligibilityRequest(BaseModel):
     requirements: List[TenderRequirement] = Field(default_factory=list, max_length=60)
 
 
+class EligibilityRow(BaseModel):
+    """One checked requirement, with the tender's own wording and page.
+
+    A typed model rather than a bare dict: the page is an int everywhere else in
+    the API, and a dict typed as Optional[str] failed validation on every real
+    tender requirement, which surfaced as HTTP 500.
+    """
+
+    requirement: str
+    detail: str = ""
+    page: Optional[int] = None
+    source_text: str = ""
+
+
 class EligibilityResponse(BaseModel):
-    """Each row is {requirement, detail, page, source_text}. Never a guarantee of eligibility."""
+    """Four buckets of checked requirements. Never a guarantee of eligibility."""
 
     headline: str = ""
-    meets: List[Dict[str, Optional[str]]] = Field(default_factory=list)
-    does_not_meet: List[Dict[str, Optional[str]]] = Field(default_factory=list)
-    missing: List[Dict[str, Optional[str]]] = Field(default_factory=list)
-    needs_verification: List[Dict[str, Optional[str]]] = Field(default_factory=list)
+    meets: List[EligibilityRow] = Field(default_factory=list)
+    does_not_meet: List[EligibilityRow] = Field(default_factory=list)
+    missing: List[EligibilityRow] = Field(default_factory=list)
+    needs_verification: List[EligibilityRow] = Field(default_factory=list)
     disclaimer: str = ""

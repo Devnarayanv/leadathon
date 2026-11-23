@@ -36,13 +36,46 @@ const SUGGESTIONS = {
   ],
 };
 
+const ML_SUGGESTIONS = {
+  rental_agreement: [
+    "ഈ കരാർ നേരത്തെ അവസാനിപ്പിച്ചാൽ എന്ത് സംഭവിക്കും?",
+    "നോട്ടീസ് കാലാവധി എത്ര?",
+    "എത്ര ഡിപ്പോസിറ്റ് പറയുന്നു?",
+    "അധിക ചാർജുകൾ എന്തൊക്കെ?",
+  ],
+  loan_agreement: [
+    "പലിശ നിരക്ക് എത്ര?",
+    "ഒരു ഗഡു മുടങ്ങിയാൽ എന്ത് സംഭവിക്കും?",
+    "നേരത്തെ തിരിച്ചടച്ചാൽ എത്ര ചെലവ്?",
+    "ആകെ എത്ര ഗഡുക്കൾ ഉണ്ട്?",
+  ],
+  hospital_bill: [
+    "എത്ര പണം നൽകണം?",
+    "പണം അടയ്ക്കേണ്ട അവസാന തീയതി എന്ന്?",
+    "ഏറ്റവും വലിയ ചെലവുകൾ ഏതൊക്കെ?",
+    "വൈകി അടച്ചാൽ എന്ത് സംഭവിക്കും?",
+  ],
+  government_notice: [
+    "എന്നോട് എന്ത് ചെയ്യാൻ ആവശ്യപ്പെടുന്നു?",
+    "മറുപടി നൽകാനുള്ള അവസാന തീയതി എന്ന്?",
+    "മറുപടി നൽകിയില്ലെങ്കിൽ എന്ത് സംഭവിക്കും?",
+    "എത്ര തുക ആവശ്യപ്പെടുന്നു?",
+  ],
+  other: [
+    "ഈ രേഖയിലെ പ്രധാന തുകകൾ ഏതൊക്കെ?",
+    "പ്രധാന തീയതികൾ ഏതൊക്കെ?",
+    "എനിക്ക് എന്ത് ചെയ്യണം?",
+  ],
+};
+
 export default function AskDocument({ result, language, speech }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const suggestions = SUGGESTIONS[result.classification.doc_type] ?? SUGGESTIONS.other;
+  const buckets = language === "ml" ? ML_SUGGESTIONS : SUGGESTIONS;
+  const suggestions = buckets[result.classification.doc_type] ?? buckets.other;
 
   const submit = async (text) => {
     const asked = (text ?? question).trim();
@@ -71,10 +104,7 @@ export default function AskDocument({ result, language, speech }) {
       <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
         {t(language, "askTitle")}
       </h2>
-      <p className="panel-note mt-2">
-        Answers come only from your document&rsquo;s text. If it is not in there, the
-        answer says so.
-      </p>
+      <p className="panel-note mt-2">{t(language, "askIntro")}</p>
 
       <form
         onSubmit={(event) => {
@@ -125,7 +155,7 @@ export default function AskDocument({ result, language, speech }) {
             ) : (
               <span className="chip bg-warn-soft text-warn">
                 <SearchX size={11} />
-                not found in document
+                {t(language, "notInDocument")}
               </span>
             )}
             <div className="ml-auto">

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Square, Volume2 } from "lucide-react";
 import { speakUrl } from "../services/api.js";
+import { t } from "../i18n.js";
 
 // Speech comes from the browser's own voices first. Windows ships no Malayalam
 // voice, so when none is found the backend's offline eSpeak NG engine is used
@@ -34,6 +35,16 @@ export function useSpeech(serverTts = { available: false, malayalam: false }) {
   const [chosenVoice, setChosenVoice] = useState("");
   const [error, setError] = useState("");
   const audioRef = useRef(null);
+  // The server's WAV arrives as a blob, so its object URL has to be released
+  // explicitly or every spoken clause leaks one for the life of the page.
+  const audioUrlRef = useRef(null);
+
+  const releaseAudioUrl = () => {
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+  };
 
   const stop = () => {
     synth?.cancel();
@@ -42,6 +53,7 @@ export function useSpeech(serverTts = { available: false, malayalam: false }) {
       audioRef.current.src = "";
       audioRef.current = null;
     }
+    releaseAudioUrl();
     setSpeakingId(null);
   };
 
@@ -88,12 +100,18 @@ export function useSpeech(serverTts = { available: false, malayalam: false }) {
         throw new Error(body.detail || "Local speech engine unavailable.");
       }
       const blob = await response.blob();
-      const audio = new Audio(URL.createObjectURL(blob));
+      const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
+      const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => setSpeakingId(null);
+      audio.onended = () => {
+        setSpeakingId(null);
+        releaseAudioUrl();
+      };
       audio.onerror = () => {
         setError("The audio could not be played.");
         setSpeakingId(null);
+        releaseAudioUrl();
       };
       setSpeakingId(id);
       await audio.play();
@@ -167,7 +185,7 @@ export default function AudioControls({
   if (!speech.supported) {
     return (
       <span className="text-[0.7rem] text-ink-faint">
-        This browser does not support speech.
+        {t(language, "browserNoSpeech")}
       </span>
     );
   }
@@ -179,23 +197,22 @@ export default function AudioControls({
         onClick={() => (active ? speech.stop() : speech.speak(id, text, language))}
         className={`btn-secondary ${compact ? "!px-2.5 !py-1.5" : ""} text-xs`}
         disabled={!text?.trim() || !usable}
-        title={
-          usable
-            ? undefined
-            : "No voice is available for this language on this machine."
-        }
+        title={usable ? undefined : t(language, "noVoice")}
       >
         {active ? <Square size={12} /> : <Volume2 size={13} />}
         {active ? stopLabel : label}
       </button>
 
       {!browserVoice && usable && (
-        <span className="text-[0.7rem] text-ink-faint">offline voice</span>
+        <span className="text-[0.7rem] text-ink-faint">{t(language, "offlineVoice")}</span>
       )}
 
       {!usable && (
         <span className="text-[0.7rem] text-warn">
-          No {language === "ml" ? "Malayalam" : "English"} voice on this machine.
+          {t(language, "noVoiceShort").replace(
+            "%s",
+            language === "ml" ? "മലയാളം" : "English",
+          )}
         </span>
       )}
 
@@ -214,9 +231,9 @@ export function VoicePicker({ speech, language }) {
       value={speech.chosenVoice}
       onChange={(event) => speech.setChosenVoice(event.target.value)}
       className="max-w-full rounded-lg border border-line-strong bg-surface px-2 py-1 text-[0.7rem] text-ink-soft outline-none focus:border-brand"
-      title="Voice"
+      title={t(language, "voice")}
     >
-      <option value="">Default voice</option>
+      <option value="">{t(language, "defaultVoice")}</option>
       {options.map((voice) => (
         <option key={voice.voiceURI} value={voice.voiceURI}>
           {voice.name}

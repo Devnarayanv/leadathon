@@ -23,13 +23,48 @@ def malayalam_failed_message(model: str = "") -> str:
     current = model.strip().lower()
     others = [m for m in _MALAYALAM_ALTERNATIVES if m.lower() != current]
     return (
-        'The model "%s" did not reply in Malayalam, so its answer was discarded '
-        "rather than shown to you as a translation. Malayalam is hard for small "
-        "local models. English explanations still work, and the facts, clauses "
-        "and deadlines below come from the rule engine, not the model. To try "
-        "another model, set OLLAMA_MODEL in .env (for example %s) and restart "
-        "the backend." % (model, " or ".join(others[:2]))
+        '"%s" മോഡൽ മലയാളത്തിൽ മറുപടി നൽകിയില്ല, അതിനാൽ ആ ഉത്തരം വിവർത്തനമായി '
+        "കാണിക്കാതെ ഒഴിവാക്കി. ചെറിയ ലോക്കൽ മോഡലുകൾക്ക് മലയാളം ബുദ്ധിമുട്ടാണ്. "
+        "താഴെയുള്ള വിവരങ്ങളും വാക്യങ്ങളും തീയതികളും മോഡലിൽ നിന്നല്ല, ചട്ട "
+        "എൻജിനിൽ നിന്നാണ്. മറ്റൊരു മോഡൽ പരീക്ഷിക്കാൻ .env-ൽ OLLAMA_MODEL "
+        "സെറ്റ് ചെയ്ത് (ഉദാ: %s) ബാക്കെൻഡ് പുനരാരംഭിക്കുക."
+        % (model, " അല്ലെങ്കിൽ ".join(others[:2]))
     )
+
+def _english_wrong_language_message(model: str) -> str:
+    return (
+        'The model "%s" did not reply in Malayalam, so its answer was discarded '
+        "rather than shown as a translation." % (model or config.model_for("ml"))
+    )
+
+
+def _ollama_warning(exc: Exception, language: str = "en") -> str:
+    """The model-side reason, in the language the user is reading.
+
+    Ollama's own messages are English and fairly technical. Translating the
+    class of failure keeps the note useful without pretending to quote it.
+    """
+    if language != "ml":
+        return str(exc)
+    model = config.model_for("ml")
+    if isinstance(exc, ollama_service.OllamaUnavailable):
+        return (
+            "Ollama ലഭ്യമല്ല അല്ലെങ്കിൽ \"%s\" മോഡൽ ഇൻസ്റ്റാൾ ചെയ്തിട്ടില്ല. "
+            "അതിനാൽ താഴെയുള്ളത് ചട്ടങ്ങളിസ്ഥാനമാക്കിയുള്ള കുറിപ്പുകളാണ്. "
+            "Ollama ആരംഭിച്ച് `ollama pull %s` ചെയ്താൽ AI വിശദീകരണം "
+            "ലഭിക്കും." % (model, model)
+        )
+    if isinstance(exc, ollama_service.OllamaBadJson):
+        return (
+            "ലോക്കൽ മോഡൽ സാധുവായ JSON നൽകിയില്ല. മറ്റൊരു OLLAMA_MODEL "
+            "പരീക്ഷിക്കുക; അതുവരെ ചട്ടങ്ങളടിസ്ഥാനമാക്കിയുള്ള കുറിപ്പുകൾ "
+            "കാണിക്കുന്നു."
+        )
+    return (
+        "ഈ അഭ്യർത്ഥന പൂർത്തിയാക്കാൻ ലോക്കൽ മോഡലിന് കഴിഞ്ഞില്ല. "
+        "ചട്ടങ്ങളടിസ്ഥാനമാക്കിയുള്ള കുറിപ്പുകൾ കാണിക്കുന്നു."
+    )
+
 
 logger = logging.getLogger(__name__)
 
@@ -128,18 +163,26 @@ def explain_clauses(
         # truncates at the same place, so keep the complete entries instead.
         entries = [e for e in ollama_service.salvage_json_objects(exc.raw) if "id" in e]
         if entries:
-            warnings.append(
-                "The model's reply was cut short, so %d of %d clauses were "
-                "recovered from it. Raise CLAUSE_TOKEN_BUDGET or lower "
-                "MAX_EXPLAINED_CLAUSES for complete answers."
-                % (len(entries), len(chosen))
-            )
+            if language == "ml":
+                warnings.append(
+                    "മോഡലിന്റെ മറുപടി നടുവിൽ മുറിഞ്ഞു, %d-ൽ %d വാക്യങ്ങൾ "
+                    "അതിൽ നിന്ന് കണ്ടെടുത്തു. പൂർണ്ണ ഉത്തരങ്ങൾക്ക് "
+                    "CLAUSE_TOKEN_BUDGET കൂട്ടുകയോ MAX_EXPLAINED_CLAUSES "
+                    "കുറയ്ക്കുകയോ ചെയ്യുക." % (len(entries), len(chosen))
+                )
+            else:
+                warnings.append(
+                    "The model's reply was cut short, so %d of %d clauses were "
+                    "recovered from it. Raise CLAUSE_TOKEN_BUDGET or lower "
+                    "MAX_EXPLAINED_CLAUSES for complete answers."
+                    % (len(entries), len(chosen))
+                )
         else:
-            warnings.append(str(exc))
+            warnings.append(_ollama_warning(exc, language))
     except ollama_service.OllamaUnavailable as exc:
-        warnings.append(str(exc))
+        warnings.append(_ollama_warning(exc, language))
     except ollama_service.OllamaError as exc:
-        warnings.append(str(exc))
+        warnings.append(_ollama_warning(exc, language))
 
     # Parsing runs for a clean reply and a salvaged one alike.
     if entries:
@@ -159,12 +202,21 @@ def explain_clauses(
                 wrong_language += 1
         llm_ok = bool(explanations)
         if not llm_ok and wrong_language:
-            warnings.append(malayalam_failed_message(model))
+            warnings.append(
+                malayalam_failed_message(model)
+                if language == "ml"
+                else _english_wrong_language_message(model)
+            )
         elif not llm_ok:
             warnings.append(
-                "The local model replied but no usable explanation could be read from "
-                "it. Rule-based notes are shown instead. A larger OLLAMA_MODEL usually "
-                "fixes this."
+                "ലോക്കൽ മോഡൽ മറുപടി നൽകി, പക്ഷേ അതിൽ നിന്ന് ഉപയോഗിക്കാവുന്ന "
+                "വിശദീകരണം കിട്ടിയില്ല. പകരം ചട്ടങ്ങളടിസ്ഥാനമാക്കിയുള്ള "
+                "കുറിപ്പുകൾ കാണിക്കുന്നു. വലിയ OLLAMA_MODEL സാധാരണ ഇത് "
+                "പരിഹരിക്കും."
+                if language == "ml"
+                else "The local model replied but no usable explanation could be read "
+                "from it. Rule-based notes are shown instead. A larger OLLAMA_MODEL "
+                "usually fixes this."
             )
 
     missing = 0
@@ -184,20 +236,53 @@ def explain_clauses(
 
     if missing:
         warnings.append(
-            "%d clause(s) came back without an explanation from the model; rule-based "
-            "notes are shown for those." % missing
+            "%d വാക്യത്തിന് മോഡലിൽ നിന്ന് വിശദീകരണം ലഭിച്ചില്ല; അവയ്ക്ക് "
+            "ചട്ടങ്ങളടിസ്ഥാനമാക്കിയുള്ള കുറിപ്പുകൾ കാണിക്കുന്നു." % missing
+            if language == "ml"
+            else "%d clause(s) came back without an explanation from the model; "
+            "rule-based notes are shown for those." % missing
         )
     if skipped > 0 and llm_ok:
         warnings.append(
-            "AI explanations were generated for the %d highest-priority clauses "
+            "ഏറ്റവും പ്രധാനപ്പെട്ട %d വാക്യങ്ങൾക്ക് AI വിശദീകരണം "
+            "തയ്യാറാക്കി (ഈ ഭാഷയ്ക്ക് പരിധി %d). ബാക്കിയുള്ള %d ചട്ടങ്ങളടിസ്ഥാനമാക്കിയുള്ള "
+            "കുറിപ്പുകൾ കാണിക്കുന്നു." % (len(chosen), budget, skipped)
+            if language == "ml"
+            else "AI explanations were generated for the %d highest-priority clauses "
             "(limit %d for this language). The remaining %d show rule-based notes."
             % (len(chosen), budget, skipped)
         )
     return clauses, warnings
 
 
-def rule_summary(doc_type_label: str, facts: List[Fact], clauses: List[Clause]) -> str:
+def rule_summary(
+    doc_type_label: str, facts: List[Fact], clauses: List[Clause], language: str = "en"
+) -> str:
     """Summary built from rule output only. Always truthful, never invented."""
+    categories = []
+    for clause in clauses:
+        if clause.label not in categories:
+            categories.append(clause.label)
+
+    if language == "ml":
+        parts = ["കണ്ടെത്തിയ രേഖാ തരം: %s." % doc_type_label]
+        if facts:
+            parts.append(
+                "രേഖയിൽ നിന്ന് വായിച്ച പ്രധാന വിവരങ്ങൾ: "
+                + "; ".join("%s = %s" % (f.label, f.value) for f in facts[:4])
+                + "."
+            )
+        else:
+            parts.append("ചട്ട എൻജിനിൽ നിന്ന് പ്രധാന വിവരങ്ങൾ വായിക്കാനായില്ല.")
+        if clauses:
+            parts.append(
+                "%d വാക്യം ശ്രദ്ധയ്ക്കായി അടയാളപ്പെടുത്തി: %s."
+                % (len(clauses), ", ".join(categories[:5]))
+            )
+        else:
+            parts.append("ശ്രദ്ധാ ചട്ടങ്ങളുമായി ഒരു വാക്യവും പൊരുത്തപ്പെട്ടില്ല.")
+        return " ".join(parts)
+
     parts = ["Detected document type: %s." % doc_type_label]
     if facts:
         parts.append(
@@ -208,10 +293,6 @@ def rule_summary(doc_type_label: str, facts: List[Fact], clauses: List[Clause]) 
     else:
         parts.append("No key values could be read by the rule engine.")
     if clauses:
-        categories = []
-        for clause in clauses:
-            if clause.label not in categories:
-                categories.append(clause.label)
         parts.append(
             "%d clause(s) were flagged for attention, covering: %s."
             % (len(clauses), ", ".join(categories[:5]))
@@ -228,7 +309,7 @@ def build_summary(
     language: str = "en",
 ) -> Tuple[str, str, List[str]]:
     """Returns (summary, source, warnings)."""
-    fallback = rule_summary(doc_type_label, facts, clauses)
+    fallback = rule_summary(doc_type_label, facts, clauses, language)
     highlights = ["%s: %s" % (f.label, f.value) for f in facts[:6]]
     highlights += ["Flagged - %s: %s" % (c.label, truncate(c.text, 160)) for c in clauses[:5]]
     if not highlights:
@@ -247,6 +328,10 @@ def build_summary(
             return fallback, "rules", [malayalam_failed_message()]
         if summary:
             return summary, "llm", []
-        return fallback, "rules", ["The model returned an empty summary."]
+        return fallback, "rules", [
+            "മോഡൽ ശൂന്യമായ ചുരുക്കം നൽകി."
+            if language == "ml"
+            else "The model returned an empty summary."
+        ]
     except ollama_service.OllamaError as exc:
-        return fallback, "rules", [str(exc)]
+        return fallback, "rules", [_ollama_warning(exc, language)]
