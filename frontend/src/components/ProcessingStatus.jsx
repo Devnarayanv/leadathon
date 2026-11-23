@@ -40,7 +40,7 @@ export default function ProcessingStatus({ aiEnabled }) {
           return (
             <li
               key={stage.label}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${active ? "bg-sunken" : ""}`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${active ? "bg-sunken" : ""}`}
             >
               <span
                 className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[0.65rem] ${

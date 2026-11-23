@@ -213,7 +213,7 @@ export function VoicePicker({ speech, language }) {
     <select
       value={speech.chosenVoice}
       onChange={(event) => speech.setChosenVoice(event.target.value)}
-      className="max-w-full rounded-lg border border-line-strong bg-surface px-2 py-1 text-[0.7rem] text-ink-soft outline-none focus:border-ink"
+      className="max-w-full rounded-lg border border-line-strong bg-surface px-2 py-1 text-[0.7rem] text-ink-soft outline-none focus:border-brand"
       title="Voice"
     >
       <option value="">Default voice</option>

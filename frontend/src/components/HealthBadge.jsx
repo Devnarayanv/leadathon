@@ -48,7 +48,7 @@ export default function HealthBadge({ health, onRefresh }) {
             </button>
           </div>
 
-          <dl className="space-y-2 rounded-xl bg-sunken p-3 text-xs">
+          <dl className="space-y-2 rounded-lg bg-sunken p-3 text-xs">
             <Row name="Backend" value={health ? "running" : "not reachable"} />
             <Row name="Ollama URL" value={ollama?.base_url ?? "-"} />
             <Row name="Configured model" value={ollama?.model ?? "-"} />
@@ -79,13 +79,13 @@ export default function HealthBadge({ health, onRefresh }) {
           </dl>
 
           {!ready && (
-            <pre className="mt-3 max-h-48 overflow-auto rounded-xl bg-sunken p-3 text-[0.7rem] leading-relaxed whitespace-pre-wrap text-ink-soft">
+            <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-sunken p-3 text-[0.7rem] leading-relaxed whitespace-pre-wrap text-ink-soft">
               {ollama?.message ||
                 "The backend is not reachable. Start it with: uvicorn main:app --reload"}
             </pre>
           )}
           {!health?.ocr?.available && health && (
-            <pre className="mt-2 max-h-32 overflow-auto rounded-xl bg-sunken p-3 text-[0.7rem] leading-relaxed whitespace-pre-wrap text-ink-soft">
+            <pre className="mt-2 max-h-32 overflow-auto rounded-lg bg-sunken p-3 text-[0.7rem] leading-relaxed whitespace-pre-wrap text-ink-soft">
               {health.ocr?.message}
             </pre>
           )}

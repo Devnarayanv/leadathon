@@ -19,6 +19,8 @@
   --color-on-ink: #ffffff;
 
   --color-brand: #1f4fd8;
+  --color-brand-hover: #1640b4;
+  --color-on-brand: #ffffff;
   --color-brand-soft: #eaefff;
   --color-brand-ink: #173ca8;
 
@@ -48,8 +50,10 @@
     --color-ink-faint: #787e87;
     --color-on-ink: #0d0e10;
 
-    --color-brand: #7d9bff;
-    --color-brand-soft: #1a2244;
+    --color-brand: #2f6bf0;
+    --color-brand-hover: #4a82ff;
+    --color-on-brand: #ffffff;
+    --color-brand-soft: #16224a;
     --color-brand-ink: #aec2ff;
 
     --color-good: #5fcd8d;
@@ -115,9 +119,10 @@ body {
   }
   .btn-accent {
     @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg
-      bg-brand px-4 py-2.5 text-sm font-semibold text-on-ink transition-[background-color,transform]
-      duration-150 hover:bg-brand-ink active:scale-[0.98] disabled:cursor-not-allowed
+      bg-brand px-4 py-2.5 text-sm font-semibold text-on-brand transition-[background-color,transform]
+      duration-150 hover:bg-brand-hover active:scale-[0.98] disabled:cursor-not-allowed
       disabled:opacity-40 disabled:active:scale-100;
+    box-shadow: 0 1px 2px rgb(16 18 21 / 0.12);
   }
   .btn-secondary {
     @apply border border-line-strong bg-surface text-ink hover:border-ink-faint hover:bg-sunken;

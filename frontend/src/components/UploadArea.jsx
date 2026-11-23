@@ -92,7 +92,7 @@ export default function UploadArea({
       >
         <span
           className={`mx-auto grid h-11 w-11 place-items-center rounded-lg transition-colors ${
-            dragging ? "bg-brand text-on-ink" : "border border-line bg-surface text-ink-soft group-hover:text-ink"
+            dragging ? "bg-brand text-on-brand" : "border border-line bg-surface text-ink-soft group-hover:text-ink"
           }`}
         >
           <Upload size={18} />
