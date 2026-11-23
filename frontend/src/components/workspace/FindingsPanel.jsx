@@ -78,7 +78,7 @@ function ActionList({ actions, language }) {
               aria-label={`${ws(language, "markDone")}: ${action.title}`}
               onClick={() => setDone((current) => ({ ...current, [action.id]: !checked }))}
               className={`mt-0.5 grid h-4.5 w-4.5 shrink-0 place-items-center rounded border transition-colors ${
-                checked ? "border-ink bg-ink text-white" : "border-line-strong bg-surface"
+                checked ? "border-ink bg-ink text-on-ink" : "border-line-strong bg-surface"
               }`}
             >
               {checked && <Check size={12} strokeWidth={3} />}

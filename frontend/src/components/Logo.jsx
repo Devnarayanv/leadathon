@@ -17,7 +17,7 @@ export default function Logo({ size = 22, className = "" }) {
       />
       <path d="M20 3v5h5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       <path d="M9.5 15h9M9.5 19.5h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="22.5" cy="23.5" r="3.5" fill="var(--accent, #4338ca)" />
+      <circle cx="22.5" cy="23.5" r="3.5" fill="var(--color-brand)" />
       <path d="M21 23.5l1.1 1.1 2.1-2.2" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );

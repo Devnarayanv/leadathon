@@ -62,8 +62,21 @@ MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
 # Hard caps so a huge document cannot stall the demo laptop.
 MAX_PAGES = _int("MAX_PAGES", 40)
 OCR_MAX_PAGES = _int("OCR_MAX_PAGES", 8)
-OCR_DPI = _int("OCR_DPI", 200)
-OCR_MAX_IMAGE_PX = _int("OCR_MAX_IMAGE_PX", 2200)
+OCR_DPI = _int("OCR_DPI", 220)
+OCR_MAX_IMAGE_PX = _int("OCR_MAX_IMAGE_PX", 2600)
+# Images smaller than this on the long edge are enlarged before recognition.
+# Screenshots and web-sized photos are the common case and they are far below
+# the ~300 DPI Tesseract expects, which is why they used to read as noise.
+OCR_MIN_IMAGE_PX = _int("OCR_MIN_IMAGE_PX", 1800)
+# Past this factor, upscaling invents edges instead of recovering them.
+OCR_MAX_UPSCALE = float(os.getenv("OCR_MAX_UPSCALE", "4") or 4)
+# Page-segmentation modes to try per image (see PSM_MODES in ocr_reader).
+OCR_PASSES = _int("OCR_PASSES", 3)
+# A first pass scoring at least this is kept without trying the others.
+OCR_GOOD_ENOUGH_SCORE = _int("OCR_GOOD_ENOUGH_SCORE", 900)
+# How much better a multi-script pass must score to displace the English-only
+# one. 1.0 would let a tie through; a tie means the extra script added nothing.
+OCR_LANG_SWITCH_MARGIN = float(os.getenv("OCR_LANG_SWITCH_MARGIN", "1.08") or 1.08)
 TESSERACT_CMD = os.getenv("TESSERACT_CMD", "").strip()
 OCR_LANGS = os.getenv("OCR_LANGS", "eng").strip()
 

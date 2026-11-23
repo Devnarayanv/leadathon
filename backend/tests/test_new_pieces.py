@@ -15,7 +15,7 @@ import money
 import pipeline
 import verification
 from main import app
-from schemas import ComparableDocument, PageText
+from schemas import ComparableDocument, Fact, PageText
 
 client = TestClient(app)
 
@@ -70,9 +70,14 @@ def test_invoice_mismatch_flags_exactly_the_wrong_row():
     assert [c.key for c in mismatches] == ["line_3"]
     assert mismatches[0].document_value == "Rs. 350.00"
     assert mismatches[0].calculated_value == "Rs. 300.00"
-    assert len(result.findings) == 1
-    assert result.findings[0].ref == "F1"
-    assert result.actions[0].finding_ref == "F1"
+    # One finding for the wrong row (carrying the corrected total), plus the
+    # Net-30 payment deadline. The corrected total is not a second error.
+    wrong = [f for f in result.findings if f.category == "verification_required"]
+    assert len(wrong) == 1
+    assert "Cable clips" in wrong[0].title
+    assert "Rs. 3,540.00" in wrong[0].suggested_action
+    assert wrong[0].ref in {a.finding_ref for a in result.actions}
+    assert any(f.category == "deadline" for f in result.findings)
 
 
 def test_invoice_mismatch_row_arithmetic_is_not_a_false_positive():
@@ -80,6 +85,54 @@ def test_invoice_mismatch_row_arithmetic_is_not_a_false_positive():
     ok_rows = {c.key: c.status for c in result.verification.checks if c.key.startswith("line_")}
     assert ok_rows["line_1"] == "verified"
     assert ok_rows["line_2"] == "verified"
+
+
+def test_invoice_gst_uses_cgst_plus_sgst_rate():
+    result = _analyse_demo("sample_invoice_mismatch")
+    tax = {c.key: c for c in result.verification.checks}["tax"]
+    assert tax.status == "verified"
+    assert tax.label == "Tax at 18%"
+    assert tax.calculated_value == "Rs. 549.00"
+
+
+def test_invoice_mismatch_reports_the_correct_amount_payable():
+    result = _analyse_demo("sample_invoice_mismatch")
+    corrected = {c.key: c for c in result.verification.checks}["corrected_total"]
+    assert corrected.status == "needs_attention"
+    assert corrected.calculated_value == "Rs. 3,540.00"  # 3000 + 18% GST
+    assert corrected.document_value == "Rs. 3,599.00"
+    assert corrected.difference == "+Rs. 59.00"
+    assert "Rs. 540.00" in corrected.explanation
+
+
+def test_row_formula_shows_plain_quantity():
+    result = _analyse_demo("sample_invoice_mismatch")
+    formulas = [c.formula for c in result.verification.checks if c.key.startswith("line_")]
+    assert formulas[0] == "10 × Rs. 120.00"
+    assert not any("E+" in f for f in formulas)
+
+
+def test_purchase_order_gst_and_total_are_checked():
+    result = _analyse_demo("sample_purchase_order")
+    checks = {c.key: c for c in result.verification.checks}
+    assert result.verification.status == "verified"
+    assert checks["tax"].calculated_value == "Rs. 540.00"
+    assert checks["grand_total"].calculated_value == "Rs. 3,540.00"
+    assert "corrected_total" not in checks
+
+
+def test_igst_rate_is_used_as_is():
+    facts = [
+        Fact(key="subtotal", label="Subtotal", value="1000.00"),
+        Fact(key="igst", label="IGST", value="180.00"),
+        Fact(key="igst_rate", label="IGST rate", value="18%"),
+        Fact(key="total_amount", label="Total", value="1180.00"),
+    ]
+    report = verification.verify("invoice", facts, [])
+    checks = {c.key: c for c in report.checks}
+    assert checks["tax"].status == "verified"
+    assert checks["tax"].calculated_value == "Rs. 180.00"
+    assert checks["grand_total"].status == "verified"
 
 
 # ---- invoice vs purchase order ---------------------------------------------

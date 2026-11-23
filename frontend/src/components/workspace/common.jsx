@@ -97,10 +97,10 @@ export function StatusChip({ map, status, language, className = "" }) {
 
 export function Panel({ title, action, children, id }) {
   return (
-    <section id={id} className="card p-5">
+    <section id={id} className="card p-5 sm:p-7">
       {(title || action) && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          {title && <h2 className="text-sm font-semibold">{title}</h2>}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+          {title && <h2 className="text-lg font-semibold tracking-[-0.02em]">{title}</h2>}
           {action}
         </div>
       )}

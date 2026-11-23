@@ -13,6 +13,7 @@ import document_classifier
 import fact_extractor
 import findings as finding_builder
 import line_items as item_reader
+import money
 import ollama_service
 import pdf_reader
 import verification as verifier
@@ -239,7 +240,9 @@ def _type_specific(
         requirements = doc_intel.tender_requirements(pages)
         stages.append("Tender requirements read")
 
-    report = verifier.verify(doc_type, merged, line_items)
+    currency = money.detect_currency("\n".join(p.text for p in pages))
+    ocr = any(p.source == "ocr" for p in pages)
+    report = verifier.verify(doc_type, merged, line_items, currency, ocr)
     if report.applicable:
         stages.append("Arithmetic verified")
 

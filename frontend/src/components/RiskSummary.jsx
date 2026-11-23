@@ -18,41 +18,48 @@ export default function RiskSummary({ clauses, counts, language, onJump }) {
   const levels = ORDER.filter((level) => (counts?.[level] ?? 0) > 0);
 
   return (
-    <section className="card p-5">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-semibold tabular-nums">{total}</span>
-          <span className="text-sm text-ink-soft">{t(language, "clausesFlagged")}</span>
+    <section className="card overflow-hidden">
+      <div className="grid sm:grid-cols-[minmax(11rem,auto)_1fr]">
+        <div
+          className={`flex items-baseline gap-3 px-6 py-5 sm:block sm:py-7 ${
+            total ? "bg-ink text-on-ink" : "bg-good-soft text-good"
+          }`}
+        >
+          <p className="text-4xl font-semibold sm:text-5xl tracking-[-0.04em] tabular-nums">{total}</p>
+          <p className="mt-1 text-sm opacity-75">{t(language, "clausesFlagged")}</p>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {levels.map((level) => {
-            const style = LEVEL_STYLES[level] ?? LEVEL_STYLES.info;
-            const Icon = style.icon;
-            return (
-              <button
-                key={level}
-                type="button"
-                onClick={() => onJump?.(level)}
-                className={`chip ${style.chip} hover:brightness-97`}
-                title="Jump to the first clause in this category"
-              >
-                <Icon size={12} />
-                {ATTENTION_LABELS[language]?.[level] ?? level}
-                <span className="tabular-nums opacity-70">{counts[level]}</span>
-              </button>
-            );
-          })}
-          {!levels.length && (
-            <span className="chip bg-good-soft text-good">Nothing flagged</span>
-          )}
+        <div className="flex flex-col justify-center gap-3 px-5 py-5 sm:px-6">
+          <div className="flex flex-wrap gap-2">
+            {levels.map((level) => {
+              const style = LEVEL_STYLES[level] ?? LEVEL_STYLES.info;
+              const Icon = style.icon;
+              return (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => onJump?.(level)}
+                  className={`chip ${style.chip} !px-3 !py-1.5 text-[0.8rem] transition-transform hover:-translate-y-px active:scale-[0.97]`}
+                  title="Open findings"
+                >
+                  <Icon size={13} />
+                  {ATTENTION_LABELS[language]?.[level] ?? level}
+                  <span className="font-semibold tabular-nums">{counts[level]}</span>
+                </button>
+              );
+            })}
+            {!levels.length && (
+              <span className="chip bg-good-soft !px-3 !py-1.5 text-[0.8rem] text-good">
+                Nothing flagged
+              </span>
+            )}
+          </div>
+          <p className="text-xs leading-relaxed text-ink-faint">
+            Attention indicators from the rule engine &mdash; not legal advice, and not a
+            judgment that anything is illegal.
+          </p>
         </div>
       </div>
-
-      <p className="mt-3 text-xs leading-relaxed text-ink-faint">
-        Attention indicators from the rule engine &mdash; not legal advice, and not
-        a judgment that anything is illegal.
-      </p>
     </section>
   );
 }

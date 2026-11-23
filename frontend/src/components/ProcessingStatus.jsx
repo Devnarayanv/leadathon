@@ -26,25 +26,28 @@ export default function ProcessingStatus({ aiEnabled }) {
   );
 
   return (
-    <div className="card p-5 ">
+    <div className="card p-6 sm:p-8">
       <div className="flex items-center gap-2.5">
         <Loader2 size={16} className="animate-spin text-ink-soft" />
-        <h2 className="text-sm font-semibold">Working on your document</h2>
-        <span className="ml-auto text-xs text-ink-soft">{elapsed.toFixed(0)}s</span>
+        <h2 className="text-base font-semibold">Working on your document</h2>
+        <span className="ml-auto rounded-full bg-sunken px-2.5 py-0.5 text-xs text-ink-soft tabular-nums">{elapsed.toFixed(0)}s</span>
       </div>
 
-      <ol className="mt-4 space-y-2.5">
+      <ol className="mt-6 space-y-1">
         {stages.map((stage, index) => {
           const done = index < activeIndex;
           const active = index === activeIndex;
           return (
-            <li key={stage.label} className="flex items-center gap-2.5 text-sm">
+            <li
+              key={stage.label}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${active ? "bg-sunken" : ""}`}
+            >
               <span
-                className={`grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.65rem] ${
+                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[0.65rem] ${
                   done
                     ? "bg-good-soft text-good"
                     : active
-                      ? "bg-ink text-white"
+                      ? "bg-ink text-on-ink"
                       : "bg-canvas text-ink-faint"
                 }`}
               >
@@ -53,13 +56,13 @@ export default function ProcessingStatus({ aiEnabled }) {
               <span className={done || active ? "text-ink" : "text-ink-soft"}>
                 {stage.label}
               </span>
-              {active && <Loader2 size={13} className="animate-spin text-ink-soft" />}
+              {active && <Loader2 size={13} className="ml-auto animate-spin text-ink-soft" />}
             </li>
           );
         })}
       </ol>
 
-      <p className="mt-4 text-xs text-ink-soft">
+      <p className="mt-5 text-xs leading-relaxed text-ink-soft">
         {aiEnabled
           ? "The local model runs on your own machine, so the first run after starting Ollama is the slowest."
           : "Rule-based analysis only. No AI explanations were requested."}

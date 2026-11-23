@@ -40,7 +40,7 @@ export default function HealthBadge({ health, onRefresh }) {
       </button>
 
       {open && (
-        <div className="card absolute right-0 mt-2 w-[min(22rem,calc(100vw-2rem))] p-4 shadow-lg">
+        <div className="card absolute right-0 z-30 mt-2 w-[min(23rem,calc(100vw-2rem))] p-5 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.35)]">
           <div className="mb-2 flex items-start justify-between gap-2">
             <h3 className="text-sm font-semibold">Local AI status</h3>
             <button type="button" onClick={() => setOpen(false)} className="btn-ghost !p-1">
@@ -48,7 +48,7 @@ export default function HealthBadge({ health, onRefresh }) {
             </button>
           </div>
 
-          <dl className="space-y-1.5 text-xs">
+          <dl className="space-y-2 rounded-xl bg-sunken p-3 text-xs">
             <Row name="Backend" value={health ? "running" : "not reachable"} />
             <Row name="Ollama URL" value={ollama?.base_url ?? "-"} />
             <Row name="Configured model" value={ollama?.model ?? "-"} />
@@ -79,13 +79,13 @@ export default function HealthBadge({ health, onRefresh }) {
           </dl>
 
           {!ready && (
-            <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-canvas p-3 text-[0.7rem] leading-relaxed whitespace-pre-wrap text-ink-soft">
+            <pre className="mt-3 max-h-48 overflow-auto rounded-xl bg-sunken p-3 text-[0.7rem] leading-relaxed whitespace-pre-wrap text-ink-soft">
               {ollama?.message ||
                 "The backend is not reachable. Start it with: uvicorn main:app --reload"}
             </pre>
           )}
           {!health?.ocr?.available && health && (
-            <pre className="mt-2 max-h-32 overflow-auto rounded-lg bg-canvas p-3 text-[0.7rem] leading-relaxed whitespace-pre-wrap text-ink-soft">
+            <pre className="mt-2 max-h-32 overflow-auto rounded-xl bg-sunken p-3 text-[0.7rem] leading-relaxed whitespace-pre-wrap text-ink-soft">
               {health.ocr?.message}
             </pre>
           )}

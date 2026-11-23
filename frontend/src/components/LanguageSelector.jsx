@@ -34,7 +34,7 @@ export default function LanguageSelector({
             onClick={() => option.value !== language && onChange(option.value)}
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${
               option.value === language
-                ? "bg-ink text-white"
+                ? "bg-ink text-on-ink"
                 : "text-ink-soft hover:text-ink"
             }`}
           >

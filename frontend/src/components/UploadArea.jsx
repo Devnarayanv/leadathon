@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { AlertCircle, ArrowRight, Loader2, Upload, X } from "lucide-react";
+import { AlertCircle, ArrowRight, FileText, Loader2, Upload, X } from "lucide-react";
 
 const ACCEPTED = [".pdf", ".jpg", ".jpeg", ".png"];
 const ACCEPT_ATTR = "application/pdf,image/jpeg,image/png";
@@ -62,7 +62,7 @@ export default function UploadArea({
   const shownError = localError || error;
 
   return (
-    <div>
+    <div className="card p-3 sm:p-4">
       <div
         onDragOver={(event) => {
           event.preventDefault();
@@ -75,17 +75,33 @@ export default function UploadArea({
           if (!busy) accept(event.dataTransfer.files?.[0]);
         }}
         onClick={() => !file && inputRef.current?.click()}
-        className={`rounded-[var(--radius-card)] border border-dashed px-5 py-12 text-center transition-colors ${
+        onKeyDown={(event) => {
+          if (!file && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        role="button"
+        tabIndex={file ? -1 : 0}
+        aria-label="Choose a document to analyse"
+        className={`group rounded-xl border-2 border-dashed px-6 py-14 text-center transition-colors sm:py-16 ${
           dragging
-            ? "border-ink bg-canvas"
-            : "border-line-strong bg-surface hover:border-ink-soft"
+            ? "border-brand bg-brand-soft"
+            : "border-line-strong bg-sunken hover:border-ink-faint"
         } ${file ? "" : "cursor-pointer"} ${busy ? "opacity-60" : ""}`}
       >
-        <Upload size={20} className="mx-auto text-ink-faint" />
-        <p className="mt-3 text-sm font-medium">Drop a document, or click to choose</p>
-        <p className="mt-1 text-xs text-ink-faint">
-          PDF, JPG or PNG &middot; up to {maxUploadMb} MB &middot; processed on this
-          machine
+        <span
+          className={`mx-auto grid h-14 w-14 place-items-center rounded-full transition-transform duration-200 group-hover:-translate-y-0.5 ${
+            dragging ? "bg-brand text-on-ink" : "bg-ink text-on-ink"
+          }`}
+        >
+          <Upload size={22} />
+        </span>
+        <p className="mt-5 text-base font-semibold">
+          {dragging ? "Drop it here" : "Drop a document, or click to choose"}
+        </p>
+        <p className="mt-1.5 text-[0.82rem] text-ink-faint">
+          PDF, JPG or PNG · up to {maxUploadMb} MB · processed on this machine
         </p>
         <input
           ref={inputRef}
@@ -97,7 +113,8 @@ export default function UploadArea({
       </div>
 
       {file && (
-        <div className="mt-3 flex items-center gap-3 rounded-lg border border-line px-3.5 py-2.5">
+        <div className="mt-3 flex items-center gap-3 rounded-xl bg-sunken px-4 py-3">
+          <FileText size={18} className="shrink-0 text-ink-soft" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{file.name}</p>
             <p className="text-xs text-ink-faint">{formatSize(file.size)}</p>
@@ -106,7 +123,7 @@ export default function UploadArea({
             type="button"
             onClick={clear}
             disabled={busy}
-            className="btn-ghost !px-1.5 !py-1.5"
+            className="btn-ghost !px-2 !py-2"
             title="Remove file"
           >
             <X size={15} />
@@ -115,7 +132,7 @@ export default function UploadArea({
       )}
 
       {shownError && (
-        <p className="mt-3 flex items-start gap-2 text-sm text-crit">
+        <p className="mt-3 flex items-start gap-2 rounded-xl bg-crit-soft px-4 py-3 text-sm text-crit">
           <AlertCircle size={15} className="mt-0.5 shrink-0" />
           <span>{shownError}</span>
         </p>
@@ -125,11 +142,11 @@ export default function UploadArea({
         type="button"
         onClick={() => file && onAnalyse(file)}
         disabled={!file || busy}
-        className="btn-primary mt-3 w-full"
+        className="btn-accent mt-3 w-full !py-3 text-[0.95rem]"
       >
-        {busy ? <Loader2 size={15} className="animate-spin" /> : null}
+        {busy ? <Loader2 size={16} className="animate-spin" /> : null}
         {busy ? "Analysing..." : "Analyse document"}
-        {!busy && <ArrowRight size={15} />}
+        {!busy && <ArrowRight size={16} />}
       </button>
     </div>
   );

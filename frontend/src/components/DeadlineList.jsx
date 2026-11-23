@@ -87,17 +87,17 @@ export default function DeadlineList({ deadlines, filename, language }) {
 
   if (!deadlines?.length) {
     return (
-      <section id="deadlines" className="card p-5">
-        <h2 className="text-sm font-semibold">{t(language, "deadlines")}</h2>
+      <section id="deadlines" className="card p-5 sm:p-7">
+        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "deadlines")}</h2>
         <p className="mt-1.5 text-sm text-ink-soft">{t(language, "noDeadlines")}</p>
       </section>
     );
   }
 
   return (
-    <section id="deadlines" className="card p-5">
+    <section id="deadlines" className="card p-5 sm:p-7">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">{t(language, "deadlines")}</h2>
+        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "deadlines")}</h2>
         <span className="text-xs text-ink-faint">{deadlines.length} found</span>
       </div>
 
@@ -121,7 +121,7 @@ export default function DeadlineList({ deadlines, filename, language }) {
                     title={t(language, "verified")}
                     className={`mt-0.5 grid h-4.5 w-4.5 shrink-0 place-items-center rounded border transition-colors ${
                       checked
-                        ? "border-ink bg-ink text-white"
+                        ? "border-ink bg-ink text-on-ink"
                         : "border-line-strong bg-surface hover:border-ink-soft"
                     }`}
                   >

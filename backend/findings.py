@@ -78,9 +78,18 @@ def build(
             confidence=clause.confidence,
         )
 
+    # "Correct amount payable" is the knock-on effect of a wrong row, not a
+    # second error: fold it into the first row finding instead of listing it.
+    corrected = next((c for c in verification.checks if c.key == "corrected_total"), None)
     for check in verification.checks:
-        if check.status not in ("mismatch", "needs_attention"):
+        if check.status not in ("mismatch", "needs_attention") or check.key == "corrected_total":
             continue
+        explanation = check.explanation
+        action = "Ask the issuer to confirm the figure before you pay or sign."
+        if corrected is not None and check.key.startswith("line_"):
+            explanation += " " + corrected.explanation
+            action = "Ask the issuer for a corrected invoice of %s before you pay." % corrected.calculated_value
+            corrected = None  # attach to one row only
         add(
             title="Figures disagree: %s" % check.label,
             category="verification_required",
@@ -88,9 +97,9 @@ def build(
             evidence_status="calculated",
             original_text=check.source_text or "",
             page=check.page,
-            explanation=check.explanation,
+            explanation=explanation,
             why_it_matters="The document's own figures do not agree, so one of them may be wrong.",
-            suggested_action="Ask the issuer to confirm the figure before you pay or sign.",
+            suggested_action=action,
             confidence="high",
         )
 

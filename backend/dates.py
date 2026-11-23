@@ -43,17 +43,22 @@ MONTH_DAY_YEAR = re.compile(
 # March 2025 (no day)
 MONTH_YEAR = re.compile(r"\b(%s)[a-z]*\.?,?\s+(\d{4})\b" % _MONTH_ALT, re.IGNORECASE)
 
-# Rs. 15,000 / INR 15000 / 15,000/- / Rs 1.5 lakh
+# Currency markers understood anywhere an amount is read. Indian documents
+# dominate, but invoices raised on international templates routinely use $ or
+# other symbols and an invoice total is no less real for being in dollars.
+CURRENCY_MARKER = r"(?:rs\.?|inr|₹|usd|us\$|\$|eur|€|gbp|£|aed|sar)"
+
+# Rs. 15,000 / INR 15000 / $7,650 / 15,000/- / Rs 1.5 lakh
 AMOUNT = re.compile(
-    r"(?:(?:rs\.?|inr|₹)\s*)?"
-    r"(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
+    r"(?:%s\s*)?" % CURRENCY_MARKER
+    + r"(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
     r"\s*(?:/-)?"
     r"\s*(lakhs?|lacs?|crores?|thousand)?",
     re.IGNORECASE,
 )
 CURRENCY_AMOUNT = re.compile(
-    r"(?:rs\.?|inr|₹)\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)"
-    r"\s*(?:/-)?\s*(lakhs?|lacs?|crores?|thousand)?",
+    r"%s\s*(\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)" % CURRENCY_MARKER
+    + r"\s*(?:/-)?\s*(lakhs?|lacs?|crores?|thousand)?",
     re.IGNORECASE,
 )
 # Malayalam writes the unit after the number: "18,500 രൂപ". ലക്ഷം = lakh.
@@ -237,14 +242,19 @@ def parse_amount_value(digits: str, multiplier: Optional[str]) -> Optional[float
     return value
 
 
+_CURRENCY_PREFIXES = ("rs", "inr", "₹", "usd", "us$", "$", "eur", "€", "gbp", "£", "aed", "sar")
+
+
 def format_amount(match: re.Match) -> str:
     """Render a money match the way the document wrote it.
 
-    Malayalam amounts keep their own "രൂപ" suffix rather than being relabelled
-    with "Rs.", because the value should read back the way the document says it.
+    An amount that already carries its own currency marker keeps it, whichever
+    currency that is. Only a bare number gets "Rs." prefixed, because that is
+    the assumption these documents make when they omit the symbol entirely.
+    Malayalam amounts keep their own "രൂപ" suffix for the same reason.
     """
     raw = match.group(0).strip().rstrip("-/ ")
-    if raw.lower().startswith(("rs", "inr", "₹")):
+    if raw.lower().startswith(_CURRENCY_PREFIXES):
         return raw
     if "രൂപ" in raw:  # രൂപ
         return raw

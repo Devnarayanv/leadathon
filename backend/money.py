@@ -75,6 +75,31 @@ def parse_percent(text: Optional[str]) -> Optional[Decimal]:
         return None
 
 
+_CURRENCY_SIGNS = (
+    ("₹", "Rs."), ("rs.", "Rs."), ("rs ", "Rs."), ("inr", "Rs."), ("രൂപ", "Rs."),
+    ("us$", "$"), ("usd", "$"), ("$", "$"),
+    ("eur", "€"), ("€", "€"), ("gbp", "£"), ("£", "£"),
+    ("aed", "AED"), ("sar", "SAR"),
+)
+
+
+def detect_currency(text: Optional[str], default: str = "Rs.") -> str:
+    """The currency a document writes its amounts in.
+
+    Used only for display. Verification arithmetic never converts between
+    currencies - a document is checked against itself.
+    """
+    if not text:
+        return default
+    lowered = str(text).lower()
+    best: Optional[tuple] = None
+    for needle, symbol in _CURRENCY_SIGNS:
+        index = lowered.find(needle)
+        if index != -1 and (best is None or index < best[0]):
+            best = (index, symbol)
+    return best[1] if best else default
+
+
 def q(value: Decimal) -> Decimal:
     """Round to paise, half-up, the way an accountant would."""
     return value.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
@@ -98,7 +123,8 @@ def fmt(value: Optional[Decimal], currency: str = "Rs.") -> str:
         if head:
             groups.insert(0, head)
         whole = ",".join(groups + [tail])
-    space = " " if currency else ""
+    # "Rs. 1,148.00" reads with a space; "$1,148.00" does not.
+    space = " " if currency and currency[-1].isalpha() or currency.endswith(".") else ""
     return f"{currency}{space}{sign}{whole}.{frac}"
 
 

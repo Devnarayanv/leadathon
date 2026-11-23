@@ -252,10 +252,14 @@ export default function App() {
         />
       )}
 
-      <footer className="border-t border-line py-6 text-center text-xs text-ink-soft">
-        Doc Decode &middot; local document understanding &middot; attention indicators,
-        not legal advice
-        {lastFile && <span className="ml-1">&middot; analysed locally</span>}
+      <footer className="mt-16 border-t border-line">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-6 text-xs text-ink-faint sm:px-8">
+          <span className="font-medium text-ink-soft">Doc Decode</span>
+          <span>
+            Local document understanding · attention indicators, not legal advice
+            {lastFile && " · analysed on this machine"}
+          </span>
+        </div>
       </footer>
 
       <PrivacyPanel open={privacyOpen} onClose={() => setPrivacyOpen(false)} />

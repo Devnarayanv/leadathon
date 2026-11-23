@@ -67,9 +67,9 @@ export default function AskDocument({ result, language, speech }) {
   };
 
   return (
-    <section id="ask" className="card scroll-mt-28 p-5">
+    <section id="ask" className="card scroll-mt-28 p-5 sm:p-7">
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold">{t(language, "askTitle")}</h2>
+        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "askTitle")}</h2>
       </div>
       <p className="mt-1.5 text-xs text-ink-soft">
         Answers come only from your document&rsquo;s text. If it is not in there, the

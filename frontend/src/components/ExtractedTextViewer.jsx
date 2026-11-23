@@ -7,7 +7,7 @@ export default function ExtractedTextViewer({ pages, language }) {
   const withText = (pages ?? []).filter((page) => page.text.trim());
 
   return (
-    <section className="card p-5 ">
+    <section className="card p-5 sm:p-7">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -15,7 +15,7 @@ export default function ExtractedTextViewer({ pages, language }) {
         aria-expanded={open}
       >
         <FileSearch size={17} className="text-ink-soft" />
-        <h2 className="text-sm font-semibold">{t(language, "extractedText")}</h2>
+        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "extractedText")}</h2>
         <span className="text-xs text-ink-soft">
           {withText.length} / {pages?.length ?? 0} {t(language, "pages")}
         </span>

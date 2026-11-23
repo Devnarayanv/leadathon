@@ -1,45 +1,91 @@
+@import "@fontsource-variable/inter";
 @import "tailwindcss";
 
 /* Design tokens. One place to change the look of the whole app.
-   Minimalist: one accent colour, near-flat surfaces, hairline borders,
-   and colour reserved for meaning rather than decoration. */
+   Neutral ground, one ink, one cobalt accent. Surfaces are separated by a
+   step in tone; colour is reserved for meaning (status, attention level). */
 @theme {
-  --color-canvas: #fafafa;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, "Segoe UI",
+    "Noto Sans Malayalam", sans-serif;
+
+  --color-canvas: #f4f4f2;
   --color-surface: #ffffff;
-  --color-line: #ebebed;
-  --color-line-strong: #d9d9de;
-  --color-ink: #18181b;
-  --color-ink-soft: #71717a;
-  --color-ink-faint: #a1a1aa;
+  --color-sunken: #f0f0ed;
+  --color-line: #e6e6e2;
+  --color-line-strong: #d3d3cd;
+  --color-ink: #121212;
+  --color-ink-soft: #5c5c58;
+  --color-ink-faint: #8f8f89;
+  --color-on-ink: #ffffff;
 
-  --color-brand: #4338ca;
-  --color-brand-soft: #f1f0fe;
-  --color-brand-ink: #3730a3;
+  --color-brand: #1f4fd8;
+  --color-brand-soft: #e9efff;
+  --color-brand-ink: #173ca8;
 
-  --color-good: #15803d;
-  --color-good-soft: #f2fbf4;
-  --color-warn: #a16207;
-  --color-warn-soft: #fdfaef;
-  --color-crit: #b42318;
-  --color-crit-soft: #fdf3f2;
-  --color-note: #0369a1;
-  --color-note-soft: #f2f9fd;
+  --color-good: #157a3c;
+  --color-good-soft: #e8f5ec;
+  --color-warn: #9a5b00;
+  --color-warn-soft: #fbf1df;
+  --color-crit: #c0261a;
+  --color-crit-soft: #fcebe9;
+  --color-note: #0b6e74;
+  --color-note-soft: #e3f3f3;
 
-  --radius-card: 0.75rem;
+  --radius-card: 1rem;
+}
+
+/* Dark theme: same roles, redefined. Utilities read the variables, so every
+   component follows without per-component dark: classes. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-canvas: #0e0e0f;
+    --color-surface: #18181a;
+    --color-sunken: #121214;
+    --color-line: #26262a;
+    --color-line-strong: #36363b;
+    --color-ink: #f2f2ef;
+    --color-ink-soft: #a8a8a2;
+    --color-ink-faint: #75756f;
+    --color-on-ink: #121212;
+
+    --color-brand: #6f93ff;
+    --color-brand-soft: #18224a;
+    --color-brand-ink: #a9bfff;
+
+    --color-good: #5cc98a;
+    --color-good-soft: #122a1b;
+    --color-warn: #e7ad4a;
+    --color-warn-soft: #2d2210;
+    --color-crit: #ff7b6e;
+    --color-crit-soft: #33150f;
+    --color-note: #5ccbd0;
+    --color-note-soft: #0f2a2b;
+  }
 }
 
 html {
   scroll-behavior: smooth;
+  color-scheme: light dark;
 }
 
 body {
   margin: 0;
   background: var(--color-canvas);
   color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, "Noto Sans Malayalam", sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
-  letter-spacing: -0.006em;
+  letter-spacing: -0.011em;
+}
+
+::selection {
+  background: var(--color-brand);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
 }
 
 /* Malayalam needs more line height and no negative tracking to stay readable. */
@@ -53,40 +99,46 @@ body {
     @apply rounded-[var(--radius-card)] border border-line bg-surface;
   }
   /* Tailwind v4 cannot @apply one custom class inside another, so the shared
-     button rules are repeated rather than composed. */
+     button rules are repeated rather than composed. Buttons are pills. */
   .btn,
   .btn-primary,
   .btn-secondary,
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2
-      text-sm font-medium transition-colors disabled:cursor-not-allowed
-      disabled:opacity-40;
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-full
+      px-4 py-2 text-sm font-medium transition-[background-color,color,transform,border-color]
+      duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40
+      disabled:active:scale-100;
   }
   .btn-primary {
-    @apply bg-ink text-white hover:bg-ink/90;
+    @apply bg-ink text-on-ink hover:bg-ink/85;
+  }
+  .btn-accent {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-full
+      bg-brand px-5 py-2.5 text-sm font-semibold text-on-ink transition-[background-color,transform]
+      duration-150 hover:bg-brand-ink active:scale-[0.97] disabled:cursor-not-allowed
+      disabled:opacity-40 disabled:active:scale-100;
   }
   .btn-secondary {
-    @apply border border-line-strong bg-surface text-ink hover:bg-canvas;
+    @apply border border-line-strong bg-surface text-ink hover:border-ink-faint hover:bg-sunken;
   }
   .btn-ghost {
-    @apply text-ink-soft hover:bg-canvas hover:text-ink;
+    @apply text-ink-soft hover:bg-sunken hover:text-ink;
   }
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs
-      font-medium;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
+  /* Small field label: sentence case, readable, quiet. */
   .label {
-    @apply text-[0.68rem] font-semibold tracking-[0.07em] text-ink-faint uppercase;
+    @apply text-xs font-medium text-ink-faint;
   }
   .field {
-    @apply w-full rounded-lg border border-line-strong bg-surface px-3.5 py-2.5
-      text-sm text-ink outline-none placeholder:text-ink-faint
-      focus:border-ink focus:ring-0;
+    @apply w-full rounded-xl border border-line-strong bg-surface px-4 py-2.5 text-sm
+      text-ink outline-none transition-colors placeholder:text-ink-faint
+      focus:border-brand focus:ring-0;
   }
   .prose-plain {
-    @apply text-sm leading-relaxed text-ink;
+    @apply text-[0.94rem] leading-relaxed text-ink;
   }
-  /* A left rule is quieter than a filled box for sectioning. */
   .rule-left {
     @apply border-l-2 pl-3;
   }
@@ -94,13 +146,32 @@ body {
 
 /* Quoted document text: always visually distinct from our own words. */
 .evidence {
-  @apply rounded-md border-l-2 border-line-strong bg-canvas py-2.5 pr-3 pl-3
-    font-mono text-[0.78rem] leading-relaxed whitespace-pre-wrap text-ink-soft;
+  @apply rounded-xl border-l-[3px] border-line-strong bg-sunken py-2.5 pr-3.5 pl-3.5
+    text-[0.82rem] leading-relaxed whitespace-pre-wrap text-ink-soft;
 }
+
+/* Entrance for panels: rises a little, once. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.rise-1 { animation-delay: 60ms; }
+.rise-2 { animation-delay: 120ms; }
+.rise-3 { animation-delay: 180ms; }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
   }
 }

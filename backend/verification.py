@@ -1,503 +1,862 @@
-"""Arithmetic checks on the figures a document states.
+"""Financial verification engine.
 
-Every check re-does one piece of arithmetic with Decimal (see money.py) and
-reports the formula, the inputs, what the document says and what the
-arithmetic gives. A check the document cannot support is reported as
-missing_information with the reason. It is never run on a zero and never
-reported as passed.
+Every check here re-does the document's own arithmetic from the figures the
+document states, and reports the formula, the inputs, the document's answer,
+Doc Decode's answer and the difference. Nothing is estimated and no missing
+figure is filled in: a check whose inputs are not all present is reported as
+"missing information", never computed from a guess.
 
-Only figures the document states are used. The one derived value is a
-calculation the document's own numbers imply (for example tax = base x rate).
+All arithmetic is Decimal (see money.py).
+
+OCR is the one source of doubt that arithmetic cannot remove. A "3" read where
+the page prints a "9" produces a perfectly computed mismatch that does not
+exist on paper. So when the figures came from OCR, a mismatch is reported as
+"needs attention" with an instruction to compare against the original, rather
+than as a confirmed error.
 """
-import datetime as dt
-from decimal import Decimal, localcontext
-from typing import Dict, List, Optional, Sequence, Tuple
+from decimal import Decimal
+from typing import Dict, List, Optional, Tuple
 
 import money
-from document_classifier import label_for
 from schemas import Fact, LineItem, VerificationCheck, VerificationReport
 
 TOLERANCE = Decimal("1.00")
-MAX_LINE_CHECKS = 40
 
-_DATE_FORMATS = (
-    "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d/%m/%y", "%Y-%m-%d",
-    "%d %B %Y", "%d %b %Y", "%d %B, %Y", "%d %b, %Y",
-)
+KIND_LABELS = {
+    "invoice": "Invoice arithmetic",
+    "purchase_order": "Purchase order arithmetic",
+    "hospital_bill": "Bill arithmetic",
+    "loan": "Loan repayment calculation",
+    "gst_notice": "Demand total",
+    "tender": "Tender deposits",
+    "rental": "Rent and deposit",
+    "insurance": "Premium and cover",
+}
 
 
-class _Figures:
-    """Read-only view of the document's stated facts."""
+class _Facts:
+    """Fact lookup that remembers which inputs a check actually used."""
 
-    def __init__(self, facts: Sequence[Fact]):
-        self.by_key: Dict[str, Fact] = {fact.key: fact for fact in facts}
+    def __init__(self, facts: List[Fact]):
+        self.by_key: Dict[str, Fact] = {f.key: f for f in facts}
 
     def fact(self, key: str) -> Optional[Fact]:
         return self.by_key.get(key)
 
-    def money(self, key: str) -> Optional[Decimal]:
-        fact = self.fact(key)
+    def amount(self, key: str) -> Optional[Decimal]:
+        fact = self.by_key.get(key)
         return money.parse(fact.value) if fact else None
 
-    def pct(self, key: str) -> Optional[Decimal]:
-        fact = self.fact(key)
+    def percent(self, key: str) -> Optional[Decimal]:
+        fact = self.by_key.get(key)
         return money.parse_percent(fact.value) if fact else None
 
-    def text(self, key: str) -> Optional[str]:
-        fact = self.fact(key)
-        return fact.value if fact else None
-
-    def where(self, key: str) -> Tuple[Optional[int], Optional[str]]:
-        fact = self.fact(key)
-        return (fact.page, fact.source_text) if fact else (None, None)
+    def label(self, key: str, fallback: str) -> str:
+        fact = self.by_key.get(key)
+        return fact.label if fact else fallback
 
 
-def _check(
-    key: str,
-    label: str,
-    status: str,
-    *,
-    formula: str = "",
-    inputs: Sequence[Tuple[str, str]] = (),
-    stated: Optional[Decimal] = None,
-    calculated: Optional[Decimal] = None,
-    explanation: str = "",
-    page: Optional[int] = None,
-    source: Optional[str] = None,
-    assumptions: Sequence[str] = (),
-) -> VerificationCheck:
-    difference = None
-    if stated is not None and calculated is not None:
-        difference = money.fmt(money.q(stated - calculated))
-    return VerificationCheck(
-        key=key,
-        label=label,
-        status=status,
-        formula=formula,
-        inputs=[{"name": name, "value": value} for name, value in inputs],
-        document_value=money.fmt(stated) if stated is not None else None,
-        calculated_value=money.fmt(calculated) if calculated is not None else None,
-        difference=difference,
-        explanation=explanation,
-        page=page,
-        source_text=source,
-        assumptions=list(assumptions),
-    )
+def _num(value: Decimal) -> str:
+    """A plain decimal for display: 10 not 1E+1, 2.5 not 2.50."""
+    text = format(value.normalize(), "f")
+    return text
 
 
-def _compare_status(stated: Decimal, calculated: Decimal) -> str:
-    return "verified" if money.within_tolerance(stated, calculated, TOLERANCE) else "mismatch"
-
-
-def _dec(text: Optional[str]) -> Optional[Decimal]:
-    return money.parse(text) if text else None
-
-
-def _compared(
-    key: str,
-    label: str,
-    stated: Optional[Decimal],
-    calculated: Decimal,
-    formula: str,
-    inputs: Sequence[Tuple[str, str]],
-    page: Optional[int],
-    source: Optional[str],
-    assumptions: Sequence[str] = (),
-) -> VerificationCheck:
-    """A check where both sides are known, or the document's side is missing."""
-    if stated is None:
-        return _check(
-            key, label, "missing_information", formula=formula, inputs=inputs,
-            calculated=calculated, page=page, source=source,
-            explanation="The document does not state this figure. The calculated value is shown for reference only.",
-            assumptions=assumptions,
-        )
-    status = _compare_status(stated, calculated)
-    if status == "verified":
-        explanation = "The stated figure agrees with the calculation."
+def _input(label: str, value: Optional[Decimal], currency: str, source: str = "extracted",
+           page: Optional[int] = None, percent: bool = False) -> Dict[str, str]:
+    if value is None:
+        shown = "Not stated"
+    elif percent:
+        shown = "%s%%" % _num(value)
     else:
-        explanation = "The calculation gives %s, but the document states %s." % (
-            money.fmt(calculated), money.fmt(stated),
+        shown = money.fmt(value, currency)
+    entry = {"label": label, "value": shown, "source": source}
+    if page is not None:
+        entry["page"] = str(page)
+    return entry
+
+
+def _compare(document: Decimal, calculated: Decimal, ocr: bool) -> Tuple[str, Decimal]:
+    difference = money.q(document - calculated)
+    if abs(difference) <= TOLERANCE:
+        return "verified", difference
+    return ("needs_attention" if ocr else "mismatch"), difference
+
+
+def _difference_text(difference: Decimal, currency: str) -> str:
+    if difference == 0:
+        return money.fmt(Decimal(0), currency)
+    sign = "+" if difference > 0 else "−"
+    return "%s%s" % (sign, money.fmt(abs(difference), currency))
+
+
+def _ocr_note(status: str) -> str:
+    if status == "needs_attention":
+        return (
+            " The figures were read by OCR, which can misread a single digit "
+            "(a 3 for a 9, a 1 for a 7). Compare these numbers with the original "
+            "before treating this as an error."
         )
-    return _check(
-        key, label, status, formula=formula, inputs=inputs, stated=stated,
-        calculated=calculated, explanation=explanation, page=page, source=source,
-        assumptions=assumptions,
-    )
+    return ""
 
 
-def _invoice_checks(figures: _Figures, items: Sequence[LineItem]) -> Tuple[List[VerificationCheck], List[str]]:
+# ---------------------------------------------------------------------------
+# Invoice / bill / purchase order
+# ---------------------------------------------------------------------------
+
+def _line_item_checks(items: List[LineItem], currency: str, ocr: bool,
+                      subtotal: Optional[Decimal]) -> Tuple[List[VerificationCheck], Optional[Decimal], bool]:
+    """Per-row quantity x rate checks, and the sum of the rows.
+
+    Returns (checks, sum_of_rows, rows_are_trustworthy). On an OCR'd document
+    the rows are only trusted when they add up to the stated subtotal: a table
+    that OCR has mangled produces a column of fake mismatches, which would be
+    the worst possible thing to put in front of a user.
+    """
+    rows = []
+    for item in items:
+        qty = money.parse(item.quantity) if item.quantity else None
+        rate = money.parse(item.unit_price) if item.unit_price else None
+        amount = money.parse(item.amount) if item.amount else None
+        rows.append((item, qty, rate, amount))
+
+    stated_sum = sum((r[3] for r in rows if r[3] is not None), Decimal(0))
+    if not rows:
+        return [], None, False
+
+    trustworthy = True
+    if ocr:
+        trustworthy = subtotal is not None and money.within_tolerance(stated_sum, subtotal, TOLERANCE)
+
+    if not trustworthy:
+        check = VerificationCheck(
+            key="line_items_unreadable",
+            label="Line items",
+            status="unable_to_verify",
+            formula="Σ (quantity × unit price)",
+            explanation=(
+                "%d table row(s) were read from the scan, but they do not add up to "
+                "the stated subtotal, which usually means OCR misread the table "
+                "rather than that the invoice is wrong. Line-by-line arithmetic was "
+                "not checked. Upload a clearer scan or the original PDF to verify "
+                "each row." % len(rows)
+            ),
+            assumptions=["Row figures read by OCR were not trusted for arithmetic."],
+        )
+        return [check], None, False
+
     checks: List[VerificationCheck] = []
-    assumptions: List[str] = []
-
-    subtotal = figures.money("subtotal")
-    discount = figures.money("discount")
-    taxable = figures.money("taxable_value")
-    total = figures.money("total")
-    sub_page, sub_src = figures.where("subtotal")
-
-    # 1. Each row: quantity x rate = amount.
-    if not items:
-        checks.append(_check(
-            "line_items", "Line items", "missing_information",
-            explanation="No quantity, rate and amount rows could be read from the table, so row arithmetic was not run.",
-        ))
-    for number, item in enumerate(items[:MAX_LINE_CHECKS], start=1):
-        label = "Line %d: %s" % (number, item.description[:60])
-        qty, rate, amount = _dec(item.quantity), _dec(item.unit_price), _dec(item.amount)
+    for index, (item, qty, rate, amount) in enumerate(rows, start=1):
         if qty is None or rate is None or amount is None:
-            checks.append(_check(
-                "line_%d" % number, label, "missing_information",
-                formula="quantity x rate = amount",
-                explanation="Quantity, rate or amount is not stated on this row.",
-                page=item.page, source=item.source_text,
-            ))
             continue
         calculated = money.q(qty * rate)
-        checks.append(_compared(
-            "line_%d" % number, label, amount, calculated,
-            formula="quantity x rate = amount",
-            inputs=[("quantity", item.quantity or ""), ("rate", item.unit_price or "")],
-            page=item.page, source=item.source_text,
-        ))
+        status, difference = _compare(amount, calculated, ocr)
+        checks.append(
+            VerificationCheck(
+                key="line_%d" % index,
+                label=item.description or "Row %d" % index,
+                status=status,
+                formula="%s × %s" % (_num(qty), money.fmt(rate, currency)),
+                inputs=[
+                    _input("Quantity", qty, "", page=item.page) | {"value": str(_num(qty))},
+                    _input("Unit price", rate, currency, page=item.page),
+                ],
+                document_value=money.fmt(amount, currency),
+                calculated_value=money.fmt(calculated, currency),
+                difference=_difference_text(difference, currency),
+                explanation=(
+                    "Row total matches quantity × unit price."
+                    if status == "verified"
+                    else "The row total on the document is %s, but %s × %s = %s."
+                    % (money.fmt(amount, currency), _num(qty),
+                       money.fmt(rate, currency), money.fmt(calculated, currency))
+                    + _ocr_note(status)
+                ),
+                page=item.page,
+                source_text=item.source_text,
+            )
+        )
+    # The subtotal is checked against the row totals AS PRINTED, not against
+    # recomputed qty x rate. Otherwise one wrong row cascades into a "wrong"
+    # subtotal, a "wrong" tax and a "wrong" total, and the user is shown four
+    # errors where the document has one. Each check isolates one step.
+    return checks, stated_sum, True
 
-    # 2. Sum of rows against the stated subtotal.
-    amounts = [_dec(item.amount) for item in items]
-    if items and all(value is not None for value in amounts):
-        lines_sum = money.q(sum(amounts, Decimal(0)))
-        checks.append(_compared(
-            "lines_sum", "Sum of rows against subtotal", subtotal, lines_sum,
-            formula="sum of row amounts = subtotal",
-            inputs=[("sum of row amounts", money.fmt(lines_sum))],
-            page=sub_page, source=sub_src,
-        ))
-    else:
-        checks.append(_check(
-            "lines_sum", "Sum of rows against subtotal", "missing_information",
-            formula="sum of row amounts = subtotal",
-            explanation="Row amounts are incomplete, so their sum cannot be taken.",
-            page=sub_page, source=sub_src,
-        ))
 
-    # 3. Discount and taxable value.
-    base: Optional[Decimal] = None
-    if discount is not None:
-        if subtotal is None:
-            checks.append(_check(
-                "taxable_after_discount", "Taxable value after discount", "missing_information",
-                formula="subtotal - discount = taxable value",
-                explanation="A discount is stated but the subtotal is not.",
-            ))
+def _corrected_bill(items: List[LineItem], row_checks: List[VerificationCheck],
+                    subtotal: Optional[Decimal], discount: Optional[Decimal],
+                    other: Optional[Decimal], tax_total: Optional[Decimal],
+                    tax_rate: Optional[Decimal], total: Optional[Decimal],
+                    currency: str) -> Optional[VerificationCheck]:
+    wrong = [c for c in row_checks if c.key.startswith("line_") and c.status == "mismatch"]
+    if not wrong or total is None:
+        return None
+    if tax_total is not None and tax_rate is None:
+        return None  # tax is charged but its rate is unknown: cannot recompute it honestly
+
+    rows_sum = Decimal(0)
+    for item in items:
+        qty = money.parse(item.quantity) if item.quantity else None
+        rate = money.parse(item.unit_price) if item.unit_price else None
+        amount = money.parse(item.amount) if item.amount else None
+        if qty is not None and rate is not None:
+            rows_sum += money.q(qty * rate)
+        elif amount is not None:
+            rows_sum += amount
         else:
-            expected = money.q(subtotal - discount)
-            if taxable is not None:
-                checks.append(_compared(
-                    "taxable_after_discount", "Taxable value after discount", taxable, expected,
-                    formula="subtotal - discount = taxable value",
-                    inputs=[("subtotal", money.fmt(subtotal)), ("discount", money.fmt(discount))],
-                    page=figures.where("taxable_value")[0], source=figures.where("taxable_value")[1],
-                ))
-            else:
-                checks.append(_check(
-                    "taxable_after_discount", "Taxable value after discount", "missing_information",
-                    formula="subtotal - discount = taxable value", calculated=expected,
-                    explanation="A discount is stated but the taxable value is not, so the result cannot be matched to the document.",
-                ))
-            base = taxable if taxable is not None else expected
-    else:
-        if taxable is not None and subtotal is not None:
-            checks.append(_compared(
-                "taxable_value", "Taxable value against subtotal", taxable, subtotal,
-                formula="taxable value = subtotal (no discount stated)",
-                inputs=[("subtotal", money.fmt(subtotal))],
-                page=figures.where("taxable_value")[0], source=figures.where("taxable_value")[1],
-            ))
-            base = taxable
-        elif taxable is not None:
-            base = taxable
-        elif subtotal is not None:
-            base = subtotal
-            assumptions.append("No taxable value is stated, so the subtotal is used as the taxable base.")
-    if discount is None:
-        assumptions.append("No discount is stated, so none is subtracted.")
+            return None
 
-    # 4. Each tax line: taxable base x stated rate = stated amount.
-    tax_amounts: List[Decimal] = []
-    tax_complete = True
-    any_tax = False
-    for key, name in (("cgst", "CGST"), ("sgst", "SGST"), ("igst", "IGST")):
-        amount = figures.money(key)
-        rate = figures.pct(key + "_rate")
-        if amount is None and rate is None:
-            continue
-        any_tax = True
-        page, source = figures.where(key)
-        if amount is None:
-            tax_complete = False
-            checks.append(_check(
-                "tax_%s" % key, "%s amount" % name, "missing_information",
-                formula="taxable value x rate = %s" % name,
-                explanation="The %s rate is stated but the amount is not." % name,
-                page=page, source=source,
-            ))
-            continue
-        tax_amounts.append(amount)
-        if base is None:
-            checks.append(_check(
-                "tax_%s" % key, "%s against taxable value" % name, "missing_information",
-                formula="taxable value x rate = %s" % name, stated=amount,
-                explanation="No taxable value is available, so the %s cannot be recomputed." % name,
-                page=page, source=source,
-            ))
-        elif rate is None:
-            checks.append(_check(
-                "tax_%s" % key, "%s against taxable value" % name, "missing_information",
-                formula="taxable value x rate = %s" % name, stated=amount,
-                explanation="The %s rate is not stated, so the amount cannot be recomputed." % name,
-                page=page, source=source,
-            ))
+    base = rows_sum - (discount or Decimal(0))
+    gst = money.pct_of(base, tax_rate) if tax_rate is not None else Decimal(0)
+    correct_total = base + gst + (other or Decimal(0))
+    overcharge = money.q(total - correct_total)
+
+    inputs = [_input("Corrected subtotal", rows_sum, currency, source="calculated")]
+    parts = [money.fmt(rows_sum, currency)]
+    if discount:
+        inputs.append(_input("Discount", discount, currency))
+        parts.append("− " + money.fmt(discount, currency))
+    if tax_rate is not None:
+        inputs.append(_input("GST at %s%%" % _num(tax_rate), gst, currency, source="calculated"))
+        parts.append("+ " + money.fmt(gst, currency))
+    if other:
+        inputs.append(_input("Other charges", other, currency))
+        parts.append("+ " + money.fmt(other, currency))
+
+    rows_text = ", ".join(c.label for c in wrong)
+    if overcharge > 0:
+        verdict = "You are being asked for %s more than you owe." % money.fmt(overcharge, currency)
+    elif overcharge < 0:
+        verdict = "The document asks for %s less than the correct amount." % money.fmt(-overcharge, currency)
+    else:
+        verdict = "The total is unaffected."
+    gst_text = (" GST at %s%% on %s is %s%s." % (
+        _num(tax_rate), money.fmt(base, currency), money.fmt(gst, currency),
+        "" if tax_total is None else " (the document charges %s)" % money.fmt(tax_total, currency))
+        if tax_rate is not None else "")
+    return VerificationCheck(
+        key="corrected_total",
+        label="Correct amount payable",
+        status="needs_attention",
+        formula=" ".join(parts),
+        inputs=inputs,
+        document_value=money.fmt(total, currency),
+        calculated_value=money.fmt(correct_total, currency),
+        difference=_difference_text(overcharge, currency),
+        explanation=(
+            "With %s corrected to quantity × rate, the subtotal is %s.%s The correct total is %s, "
+            "but the document asks for %s. %s"
+            % (rows_text, money.fmt(rows_sum, currency), gst_text,
+               money.fmt(correct_total, currency), money.fmt(total, currency), verdict)
+        ),
+        assumptions=["Every row recomputed as quantity × unit price; the stated GST rate applied to the result."],
+    )
+
+
+def verify_invoice(facts: List[Fact], items: List[LineItem], currency: str,
+                   ocr: bool, kind: str = "invoice") -> VerificationReport:
+    f = _Facts(facts)
+    checks: List[VerificationCheck] = []
+    assumptions: List[str] = []
+    missing: List[str] = []
+
+    subtotal = f.amount("subtotal")
+    # Extractors name the same figure differently per document type (a PO's
+    # "Total:" arrives as "total", an invoice's "Grand Total:" as
+    # "total_amount"), so take whichever the document actually gave.
+    total_key = "total_amount" if f.fact("total_amount") else "total"
+    total = f.amount(total_key)
+    tax_total = f.amount("tax_total")
+    cgst, sgst, igst = f.amount("cgst"), f.amount("sgst"), f.amount("igst")
+    cgst_rate, sgst_rate = f.percent("cgst_rate"), f.percent("sgst_rate")
+    igst_rate = f.percent("igst_rate")
+    rate_from_halves = False
+    if cgst_rate is not None and sgst_rate is not None:
+        # "CGST @ 9%" + "SGST @ 9%": the GST rate is the sum of the halves.
+        tax_rate = cgst_rate + sgst_rate
+        rate_from_halves = True
+    elif igst_rate is not None:
+        tax_rate = igst_rate
+    else:
+        tax_rate = f.percent("tax_rate")
+    discount_fact = f.fact("discount")
+    discount = money.parse(discount_fact.value) if discount_fact and "%" not in discount_fact.value else None
+    other = f.amount("other_charges")
+
+    # 1. Rows
+    row_checks, rows_sum, rows_ok = _line_item_checks(items, currency, ocr, subtotal)
+    checks.extend(row_checks)
+
+    # 2. Rows add up to the subtotal
+    if rows_ok and rows_sum is not None and subtotal is not None:
+        status, difference = _compare(subtotal, rows_sum, ocr)
+        checks.append(
+            VerificationCheck(
+                key="subtotal",
+                label="Subtotal",
+                status=status,
+                formula="Σ line totals (%d rows)" % len([c for c in row_checks if c.key.startswith("line_")]),
+                inputs=[_input("Sum of rows", rows_sum, currency, source="calculated")],
+                document_value=money.fmt(subtotal, currency),
+                calculated_value=money.fmt(rows_sum, currency),
+                difference=_difference_text(difference, currency),
+                explanation=(
+                    "The subtotal equals the sum of the line items."
+                    if status == "verified"
+                    else "The line items add up to %s, but the invoice states a subtotal of %s."
+                    % (money.fmt(rows_sum, currency), money.fmt(subtotal, currency))
+                    + _ocr_note(status)
+                ),
+                page=f.fact("subtotal").page if f.fact("subtotal") else None,
+                source_text=f.fact("subtotal").source_text if f.fact("subtotal") else None,
+            )
+        )
+    if subtotal is None and rows_ok and rows_sum is not None:
+        # No stated subtotal: the rows' own sum becomes the base, and the
+        # report says so rather than pretending the document gave it.
+        subtotal = rows_sum
+        assumptions.append(
+            "The invoice states no subtotal, so the sum of the line items (%s) was used as the taxable base."
+            % money.fmt(rows_sum, currency)
+        )
+
+    # 3. Split GST adds up
+    if cgst is not None and sgst is not None:
+        split = cgst + sgst
+        if tax_total is not None:
+            status, difference = _compare(tax_total, split, ocr)
+            checks.append(
+                VerificationCheck(
+                    key="gst_split",
+                    label="CGST + SGST",
+                    status=status,
+                    formula="CGST + SGST",
+                    inputs=[_input("CGST", cgst, currency), _input("SGST", sgst, currency)],
+                    document_value=money.fmt(tax_total, currency),
+                    calculated_value=money.fmt(split, currency),
+                    difference=_difference_text(difference, currency),
+                    explanation=(
+                        "CGST and SGST add up to the tax charged."
+                        if status == "verified"
+                        else "CGST + SGST = %s, but the tax charged is %s." % (
+                            money.fmt(split, currency), money.fmt(tax_total, currency))
+                        + _ocr_note(status)
+                    ),
+                )
+            )
         else:
-            calculated = money.pct_of(base, rate)
-            checks.append(_compared(
-                "tax_%s" % key, "%s against taxable value" % name, amount, calculated,
-                formula="taxable value x %s%% = %s" % (rate.normalize(), name),
-                inputs=[("taxable value", money.fmt(base)), ("rate", "%s%%" % rate.normalize())],
-                page=page, source=source,
-            ))
-    if not any_tax:
-        checks.append(_check(
-            "tax_lines", "Tax (CGST, SGST or IGST)", "missing_information",
-            explanation="No CGST, SGST or IGST amount is stated.",
-        ))
+            tax_total = split
+        if not money.within_tolerance(cgst, sgst, TOLERANCE):
+            checks.append(
+                VerificationCheck(
+                    key="gst_halves",
+                    label="CGST equals SGST",
+                    status="needs_attention",
+                    formula="CGST = SGST",
+                    inputs=[_input("CGST", cgst, currency), _input("SGST", sgst, currency)],
+                    document_value=money.fmt(cgst, currency),
+                    calculated_value=money.fmt(sgst, currency),
+                    difference=_difference_text(cgst - sgst, currency),
+                    explanation=(
+                        "On an intra-state supply CGST and SGST are normally equal halves "
+                        "of the GST. They differ here; ask the supplier why."
+                    ),
+                )
+            )
+    elif igst is not None and tax_total is None:
+        tax_total = igst
 
-    # 5. Subtotal + tax - discount = total.
-    tax_total = money.q(sum(tax_amounts, Decimal(0))) if tax_amounts and tax_complete else None
-    total_page, total_src = figures.where("total")
-    if total is None or subtotal is None or tax_total is None:
-        missing = [name for name, value in (("total", total), ("subtotal", subtotal), ("tax amounts", tax_total)) if value is None]
-        checks.append(_check(
-            "total", "Total against subtotal, tax and discount", "missing_information",
-            formula="subtotal + tax - discount = total",
-            explanation="Needed but not stated: %s." % ", ".join(missing),
-            page=total_page, source=total_src,
-        ))
-    else:
-        discount_used = discount or Decimal(0)
-        expected = money.q(subtotal + tax_total - discount_used)
-        checks.append(_compared(
-            "total", "Total against subtotal, tax and discount", total, expected,
-            formula="subtotal + tax - discount = total",
-            inputs=[
-                ("subtotal", money.fmt(subtotal)),
-                ("tax", money.fmt(tax_total)),
-                ("discount", money.fmt(discount_used)),
-            ],
-            page=total_page, source=total_src,
-        ))
-    return checks, assumptions
+    # 4. Tax = base x rate
+    # "CGST @ 9%" and "SGST @ 9%" state the rate of each half. The GST rate is
+    # their sum, and checking the combined tax against 9% would report a false
+    # mismatch on every correct intra-state invoice.
+    rate_fact = f.fact("tax_rate")
+    if rate_from_halves:
+        assumptions.append(
+            "CGST %s%% + SGST %s%% = GST %s%%." % (_num(cgst_rate), _num(sgst_rate), _num(tax_rate))
+        )
+    elif (tax_rate is not None and cgst is not None and sgst is not None and rate_fact
+            and any(w in (rate_fact.source_text or "").lower() for w in ("cgst", "sgst", "utgst"))):
+        assumptions.append(
+            "The %s%% rate is stated per half (CGST and SGST each), so the GST rate checked is %s%%."
+            % (_num(tax_rate), _num(tax_rate * 2))
+        )
+        tax_rate = tax_rate * 2
+    if subtotal is not None and tax_rate is not None and tax_total is not None:
+        base = subtotal - (discount or Decimal(0))
+        calculated_tax = money.pct_of(base, tax_rate)
+        status, difference = _compare(tax_total, calculated_tax, ocr)
+        tax_fact = f.fact("tax_total")
+        checks.append(
+            VerificationCheck(
+                key="tax",
+                label="Tax at %s%%" % _num(tax_rate),
+                status=status,
+                formula="%s × %s%%" % (money.fmt(base, currency), _num(tax_rate)),
+                inputs=[
+                    _input("Taxable base", base, currency,
+                           source="calculated" if discount else "extracted"),
+                    _input("Tax rate", tax_rate, currency, percent=True),
+                ],
+                document_value=money.fmt(tax_total, currency),
+                calculated_value=money.fmt(calculated_tax, currency),
+                difference=_difference_text(difference, currency),
+                explanation=(
+                    "Tax matches the stated rate applied to the taxable base"
+                    + (" (within rounding)." if difference != 0 else ".")
+                    if status == "verified"
+                    else "%s%% of %s is %s, but the invoice charges %s in tax." % (
+                        _num(tax_rate), money.fmt(base, currency),
+                        money.fmt(calculated_tax, currency), money.fmt(tax_total, currency))
+                    + _ocr_note(status)
+                ),
+                page=tax_fact.page if tax_fact else None,
+                source_text=tax_fact.source_text if tax_fact else None,
+                assumptions=(["Rounded to the nearest paisa, half up."] if difference != 0 else []),
+            )
+        )
+
+    # 5. Grand total
+    if total is not None and subtotal is not None:
+        calculated_total = subtotal - (discount or Decimal(0)) + (tax_total or Decimal(0)) + (other or Decimal(0))
+        parts = [money.fmt(subtotal, currency)]
+        inputs = [_input("Subtotal", subtotal, currency,
+                         source="extracted" if f.fact("subtotal") else "calculated")]
+        if discount:
+            parts.append("− " + money.fmt(discount, currency))
+            inputs.append(_input("Discount", discount, currency))
+        if tax_total is not None:
+            parts.append("+ " + money.fmt(tax_total, currency))
+            inputs.append(_input("Tax", tax_total, currency))
+        if other:
+            parts.append("+ " + money.fmt(other, currency))
+            inputs.append(_input("Other charges", other, currency))
+        status, difference = _compare(total, calculated_total, ocr)
+        total_fact = f.fact(total_key)
+        if tax_total is None:
+            assumptions.append("No tax line was found, so the total was checked as subtotal only.")
+        checks.append(
+            VerificationCheck(
+                key="grand_total",
+                label="Grand total",
+                status=status,
+                formula=" ".join(parts),
+                inputs=inputs,
+                document_value=money.fmt(total, currency),
+                calculated_value=money.fmt(calculated_total, currency),
+                difference=_difference_text(difference, currency),
+                explanation=(
+                    "The grand total equals subtotal%s%s."
+                    % (" − discount" if discount else "", " + tax" if tax_total is not None else "")
+                    if status == "verified"
+                    else "The invoice total is %s, but %s = %s. %s %s."
+                    % (
+                        money.fmt(total, currency),
+                        " ".join(parts),
+                        money.fmt(calculated_total, currency),
+                        "The invoice asks for" if difference > 0 else "The invoice asks for",
+                        ("%s more than its own figures add up to" if difference > 0
+                         else "%s less than its own figures add up to")
+                        % money.fmt(abs(difference), currency),
+                    )
+                    + _ocr_note(status)
+                ),
+                page=total_fact.page if total_fact else None,
+                source_text=total_fact.source_text if total_fact else None,
+            )
+        )
+
+    # 6. What the bill should be. The checks above isolate each step, so a
+    # wrong row shows as one error. This works out the knock-on effect: the
+    # subtotal, GST and total the document would carry with that row fixed.
+    # Only for confirmed row errors: an OCR misread is not an overcharge.
+    corrected = _corrected_bill(items, row_checks, subtotal, discount, other, tax_total,
+                                tax_rate, total, currency)
+    if corrected is not None:
+        checks.append(corrected)
+
+    for key, label in ((total_key, "Invoice total"), ("subtotal", "Subtotal"),
+                       ("invoice_number", "Invoice number"), ("invoice_date", "Invoice date")):
+        if kind == "invoice" and not f.fact(key) and not (key == "subtotal" and rows_ok):
+            missing.append(label)
+    if kind == "invoice" and tax_total is None and tax_rate is None:
+        missing.append("Tax (GST) breakdown")
+
+    return _finish(kind, checks, assumptions, missing)
 
 
-def _tender_checks(figures: _Figures) -> Tuple[List[VerificationCheck], List[str]]:
-    estimated = figures.money("estimated_value")
-    percent = figures.pct("emd_percent")
-    emd = figures.money("emd")
-    page, source = figures.where("emd")
-    if estimated is None or percent is None:
-        return [_check(
-            "emd", "EMD against estimated value", "missing_information",
-            formula="estimated value x EMD% = EMD", stated=emd,
-            explanation="The estimated value or the EMD percentage is not stated, so the deposit cannot be recomputed.",
-            page=page, source=source,
-        )], []
-    calculated = money.pct_of(estimated, percent)
-    return [_compared(
-        "emd", "EMD against estimated value", emd, calculated,
-        formula="estimated value x %s%% = EMD" % percent.normalize(),
-        inputs=[("estimated value", money.fmt(estimated)), ("EMD rate", "%s%%" % percent.normalize())],
-        page=page, source=source,
-    )], []
-
+# ---------------------------------------------------------------------------
+# Loan
+# ---------------------------------------------------------------------------
 
 def _months(text: Optional[str]) -> Optional[int]:
     if not text:
         return None
-    digits = "".join(ch for ch in text.split(" ")[0] if ch.isdigit())
-    return int(digits) if digits else None
+    import dates
 
-
-def emi(principal: Decimal, annual_percent: Decimal, months: int) -> Decimal:
-    """Standard reducing-balance EMI, computed in Decimal at 28 digits."""
-    with localcontext() as context:
-        context.prec = 28
-        rate = annual_percent / Decimal(100) / Decimal(12)
-        if rate == 0:
-            return money.q(principal / Decimal(months))
-        growth = (Decimal(1) + rate) ** months
-        return money.q(principal * rate * growth / (growth - Decimal(1)))
-
-
-def _loan_checks(figures: _Figures) -> Tuple[List[VerificationCheck], List[str]]:
-    principal = figures.money("principal")
-    rate = figures.pct("annual_rate")
-    months = _months(figures.text("tenure_months"))
-    stated = figures.money("emi")
-    page, source = figures.where("emi")
-    absent = [
-        name for name, value in (
-            ("loan amount (principal)", principal),
-            ("annual interest rate", rate),
-            ("tenure in months", months),
-        ) if value is None or value == 0
-    ]
-    if absent:
-        return [_check(
-            "emi", "EMI against principal, rate and tenure", "missing_information",
-            formula="EMI = P x r x (1+r)^n / ((1+r)^n - 1)",
-            explanation="EMI is checked only when principal, annual rate and tenure are all stated. Not stated: %s." % ", ".join(absent),
-            page=page, source=source,
-        )], []
-    calculated = emi(principal, rate, months)
-    return [_compared(
-        "emi", "EMI against principal, rate and tenure", stated, calculated,
-        formula="EMI = P x r x (1+r)^n / ((1+r)^n - 1), r = annual rate / 12",
-        inputs=[
-            ("principal P", money.fmt(principal)),
-            ("annual rate", "%s%%" % rate.normalize()),
-            ("tenure n", "%d months" % months),
-        ],
-        page=page, source=source,
-    )], []
-
-
-def _parse_date(text: Optional[str]) -> Optional[dt.date]:
-    if not text:
+    days = dates.duration_days(text)
+    if days is None:
         return None
-    cleaned = text.strip().replace(",", ", ").replace(",  ", ", ")
-    for pattern in _DATE_FORMATS:
-        try:
-            return dt.datetime.strptime(cleaned, pattern).date()
-        except ValueError:
-            continue
+    lowered = text.lower()
+    if "year" in lowered:
+        return int(round(days / 365 * 12))
+    if "month" in lowered:
+        return int(round(days / 30))
     return None
 
 
-def _insurance_checks(figures: _Figures) -> Tuple[List[VerificationCheck], List[str]]:
-    start_text = figures.text("policy_start")
-    end_text = figures.text("policy_end")
-    start, end = _parse_date(start_text), _parse_date(end_text)
-    page, source = figures.where("policy_end")
-    if start is None or end is None:
-        return [_check(
-            "policy_period", "Policy period", "missing_information",
-            formula="policy end date is after policy start date",
-            explanation="The policy start or end date is not stated in a form that can be read.",
-            page=page, source=source,
-        )], []
-    days = (end - start).days
-    status = "verified" if days > 0 else "mismatch"
-    explanation = (
-        "The policy runs from %s to %s (%d days)." % (start.isoformat(), end.isoformat(), days)
-        if status == "verified"
-        else "The policy end date (%s) is not after the start date (%s)." % (end.isoformat(), start.isoformat())
-    )
-    return [_check(
-        "policy_period", "Policy period", status,
-        formula="policy end date is after policy start date",
-        inputs=[("start", start.isoformat()), ("end", end.isoformat())],
-        explanation=explanation, page=page, source=source,
-    )], []
+def emi(principal: Decimal, annual_rate_pct: Decimal, months: int) -> Decimal:
+    """Standard reducing-balance EMI: P·r·(1+r)^n / ((1+r)^n − 1)."""
+    if months <= 0:
+        raise ValueError("months must be positive")
+    r = annual_rate_pct / Decimal(1200)
+    if r == 0:
+        return money.q(principal / months)
+    growth = (Decimal(1) + r) ** months
+    return money.q(principal * r * growth / (growth - Decimal(1)))
 
 
-def _rent_checks(figures: _Figures) -> Tuple[List[VerificationCheck], List[str]]:
-    rent = figures.money("monthly_rent")
-    escalation = figures.pct("rent_escalation")
-    page, source = figures.where("rent_escalation")
-    if rent is None or escalation is None:
-        return [_check(
-            "rent_escalation", "Rent after escalation", "missing_information",
-            formula="rent x (1 + escalation%) = revised rent",
-            explanation="Both the monthly rent and the escalation percentage must be stated to check the escalation.",
-            page=page, source=source,
-        )], []
-    calculated = money.q(rent * (1 + escalation / Decimal(100)))
-    return [_check(
-        "rent_escalation", "Rent after escalation", "missing_information",
-        formula="rent x (1 + escalation%) = revised rent",
-        inputs=[("monthly rent", money.fmt(rent)), ("escalation", "%s%%" % escalation.normalize())],
-        calculated=calculated, page=page, source=source,
-        explanation="The agreement states an escalation but not the revised rent, so there is no stated figure to compare against. The calculated figure is shown for reference.",
-    )], []
+def verify_loan(facts: List[Fact], currency: str, ocr: bool) -> VerificationReport:
+    f = _Facts(facts)
+    checks: List[VerificationCheck] = []
+    assumptions: List[str] = []
+    missing: List[str] = []
 
+    principal = f.amount("loan_amount")
+    rate = f.percent("interest_rate")
+    months = _months(f.fact("repayment_duration").value if f.fact("repayment_duration") else None)
+    stated_emi = f.amount("emi")
 
-_KIND_FOR_TYPE = {
-    "invoice": "Invoice arithmetic",
-    "purchase_order": "Purchase order arithmetic",
-    "tender": "Tender deposit",
-    "loan_agreement": "Loan EMI",
-    "insurance": "Policy period",
-    "rental_agreement": "Rent escalation",
-}
+    for value, label in ((principal, "Loan amount"), (rate, "Interest rate"), (months, "Repayment duration")):
+        if value is None:
+            missing.append(label)
 
-
-def verify(doc_type: str, facts: Sequence[Fact], items: Sequence[LineItem]) -> VerificationReport:
-    """The document-level verification report for one document."""
-    figures = _Figures(facts)
-    if doc_type in ("invoice", "purchase_order"):
-        checks, assumptions = _invoice_checks(figures, items)
-    elif doc_type == "tender":
-        checks, assumptions = _tender_checks(figures)
-    elif doc_type == "loan_agreement":
-        checks, assumptions = _loan_checks(figures)
-    elif doc_type == "insurance":
-        checks, assumptions = _insurance_checks(figures)
-    elif doc_type == "rental_agreement":
-        checks, assumptions = _rent_checks(figures)
-    else:
-        return VerificationReport(
-            applicable=False,
-            kind="none",
-            kind_label=label_for(doc_type),
-            status="unable_to_verify",
-            headline="No arithmetic checks apply to this document type. Figures are shown as the document states them.",
+    if principal is not None and rate is not None and months:
+        calculated = emi(principal, rate, months)
+        assumptions.append(
+            "Reducing-balance method with monthly compounding (r = annual rate ÷ 12). "
+            "Flat-rate loans calculate EMI differently, and a different result is "
+            "expected for them."
+        )
+        inputs = [
+            _input("Principal (P)", principal, currency, page=f.fact("loan_amount").page),
+            _input("Annual rate", rate, currency, percent=True, page=f.fact("interest_rate").page),
+            {"label": "Months (n)", "value": str(months), "source": "extracted"},
+        ]
+        if stated_emi is not None:
+            status, difference = _compare(stated_emi, calculated, ocr)
+            # Lenders round EMI up to the rupee, and some charge on a
+            # slightly different day count; a few rupees is not a finding.
+            if status != "verified" and abs(difference) <= max(Decimal(5), calculated * Decimal("0.005")):
+                status = "verified"
+            checks.append(
+                VerificationCheck(
+                    key="emi",
+                    label="EMI",
+                    status=status,
+                    formula="P × r × (1+r)ⁿ ÷ ((1+r)ⁿ − 1)",
+                    inputs=inputs,
+                    document_value=money.fmt(stated_emi, currency),
+                    calculated_value=money.fmt(calculated, currency),
+                    difference=_difference_text(difference, currency),
+                    explanation=(
+                        "The stated EMI matches the standard reducing-balance formula."
+                        if status == "verified"
+                        else "The standard formula gives %s per month, but the document states %s. "
+                        "Ask the lender whether the rate is a flat rate or whether fees are "
+                        "included in the EMI." % (money.fmt(calculated, currency), money.fmt(stated_emi, currency))
+                        + _ocr_note(status)
+                    ),
+                    page=f.fact("emi").page,
+                    source_text=f.fact("emi").source_text,
+                )
+            )
+        else:
+            checks.append(
+                VerificationCheck(
+                    key="emi_calculated",
+                    label="EMI (calculated)",
+                    status="verified",
+                    formula="P × r × (1+r)ⁿ ÷ ((1+r)ⁿ − 1)",
+                    inputs=inputs,
+                    calculated_value=money.fmt(calculated, currency),
+                    explanation="The document states no EMI. This is what the stated loan terms imply.",
+                )
+            )
+        monthly = stated_emi if stated_emi is not None else calculated
+        total_repayment = money.q(monthly * months)
+        interest = money.q(total_repayment - principal)
+        checks.append(
+            VerificationCheck(
+                key="total_repayment",
+                label="Total repayment",
+                status="verified",
+                formula="%s × %d months" % (money.fmt(monthly, currency), months),
+                inputs=[
+                    _input("EMI", monthly, currency,
+                           source="extracted" if stated_emi is not None else "calculated"),
+                    {"label": "Months", "value": str(months), "source": "extracted"},
+                ],
+                calculated_value=money.fmt(total_repayment, currency),
+                explanation="You would repay %s in all, of which %s is interest (%s%% of the amount borrowed)."
+                % (money.fmt(total_repayment, currency), money.fmt(interest, currency),
+                   (interest / principal * 100).quantize(Decimal("0.1")) if principal else "—"),
+            )
         )
 
-    statuses = [check.status for check in checks]
+    fee_fact = f.fact("processing_fee")
+    if fee_fact and principal is not None:
+        fee_pct = money.parse_percent(fee_fact.value)
+        if fee_pct is not None:
+            fee = money.pct_of(principal, fee_pct)
+            checks.append(
+                VerificationCheck(
+                    key="processing_fee",
+                    label="Processing fee",
+                    status="verified",
+                    formula="%s × %s%%" % (money.fmt(principal, currency), _num(fee_pct)),
+                    inputs=[_input("Loan amount", principal, currency),
+                            _input("Fee rate", fee_pct, currency, percent=True)],
+                    calculated_value=money.fmt(fee, currency),
+                    explanation="A one-time fee of %s, usually deducted from the amount paid out to you."
+                    % money.fmt(fee, currency),
+                    page=fee_fact.page,
+                    source_text=fee_fact.source_text,
+                    assumptions=["GST on the fee, if charged, is not included."],
+                )
+            )
+    return _finish("loan", checks, assumptions, missing)
+
+
+# ---------------------------------------------------------------------------
+# GST notice, tender, rental, insurance
+# ---------------------------------------------------------------------------
+
+def verify_demand(facts: List[Fact], currency: str, ocr: bool) -> VerificationReport:
+    f = _Facts(facts)
+    checks: List[VerificationCheck] = []
+    missing: List[str] = []
+    tax, interest, penalty = f.amount("tax_amount"), f.amount("interest_amount"), f.amount("penalty_amount")
+    total = f.amount("total_amount")
+    parts = [(label, value) for label, value in (("Tax", tax), ("Interest", interest), ("Penalty", penalty)) if value is not None]
+    if total is not None and len(parts) >= 2:
+        calculated = sum((v for _, v in parts), Decimal(0))
+        status, difference = _compare(total, calculated, ocr)
+        checks.append(
+            VerificationCheck(
+                key="demand_total",
+                label="Total demanded",
+                status=status,
+                formula=" + ".join(label for label, _ in parts),
+                inputs=[_input(label, value, currency) for label, value in parts],
+                document_value=money.fmt(total, currency),
+                calculated_value=money.fmt(calculated, currency),
+                difference=_difference_text(difference, currency),
+                explanation=(
+                    "The total demanded equals the components listed in the notice."
+                    if status == "verified"
+                    else "The components add up to %s, but the notice demands %s. Raise this in your reply."
+                    % (money.fmt(calculated, currency), money.fmt(total, currency)) + _ocr_note(status)
+                ),
+                page=f.fact("total_amount").page,
+                source_text=f.fact("total_amount").source_text,
+            )
+        )
+    for key, label in (("tax_amount", "Tax demanded"), ("total_amount", "Total demanded")):
+        if not f.fact(key):
+            missing.append(label)
+    return _finish("gst_notice", checks, [], missing)
+
+
+def verify_tender(facts: List[Fact], currency: str, ocr: bool) -> VerificationReport:
+    f = _Facts(facts)
+    checks: List[VerificationCheck] = []
+    pac, emd, fee = f.amount("estimate_value"), f.amount("emd"), f.amount("tender_fee")
+    if pac is not None and emd is not None and pac > 0:
+        share = (emd / pac * 100).quantize(Decimal("0.01"))
+        checks.append(
+            VerificationCheck(
+                key="emd_share",
+                label="EMD as a share of the estimate",
+                status="verified" if share <= Decimal("5") else "needs_attention",
+                formula="EMD ÷ PAC × 100",
+                inputs=[_input("EMD", emd, currency), _input("Estimate (PAC)", pac, currency)],
+                calculated_value="%s%%" % share,
+                explanation=(
+                    "EMD is %s%% of the estimated contract value. Public works tenders commonly "
+                    "set it at 1–2.5%%; check the tender's own rule if it looks high." % share
+                ),
+                page=f.fact("emd").page,
+                source_text=f.fact("emd").source_text,
+            )
+        )
+    if emd is not None or fee is not None:
+        outlay = (emd or Decimal(0)) + (fee or Decimal(0))
+        parts = [label for label, v in (("EMD", emd), ("Tender fee", fee)) if v is not None]
+        checks.append(
+            VerificationCheck(
+                key="upfront",
+                label="Cash needed to bid",
+                status="verified",
+                formula=" + ".join(parts),
+                inputs=[_input(l, v, currency) for l, v in (("EMD", emd), ("Tender fee", fee)) if v is not None],
+                calculated_value=money.fmt(outlay, currency),
+                explanation="Amount to arrange before submitting. EMD is normally refunded to unsuccessful bidders; the tender fee is not.",
+            )
+        )
+    missing = [label for key, label in (("emd", "EMD / bid security"), ("submission_deadline", "Submission deadline")) if not f.fact(key)]
+    return _finish("tender", checks, [], missing)
+
+
+def verify_rental(facts: List[Fact], currency: str, ocr: bool) -> VerificationReport:
+    f = _Facts(facts)
+    checks: List[VerificationCheck] = []
+    rent, deposit = f.amount("rent"), f.amount("deposit")
+    if rent and deposit:
+        months = (deposit / rent).quantize(Decimal("0.1"))
+        checks.append(
+            VerificationCheck(
+                key="deposit_months",
+                label="Deposit in months of rent",
+                status="verified" if months <= 6 else "needs_attention",
+                formula="Deposit ÷ monthly rent",
+                inputs=[_input("Security deposit", deposit, currency, page=f.fact("deposit").page),
+                        _input("Monthly rent", rent, currency, page=f.fact("rent").page)],
+                calculated_value="%s months" % _num(months),
+                explanation=(
+                    "The deposit equals %s months of rent." % _num(months)
+                    + (" That is on the high side; confirm the refund terms in writing." if months > 6 else "")
+                ),
+            )
+        )
+        duration = _months(f.fact("duration").value) if f.fact("duration") else None
+        if duration:
+            total = money.q(rent * duration)
+            checks.append(
+                VerificationCheck(
+                    key="total_rent",
+                    label="Rent over the full term",
+                    status="verified",
+                    formula="%s × %d months" % (money.fmt(rent, currency), duration),
+                    inputs=[_input("Monthly rent", rent, currency),
+                            {"label": "Months", "value": str(duration), "source": "extracted"}],
+                    calculated_value=money.fmt(total, currency),
+                    explanation="Total rent payable over the agreement, before any escalation or maintenance charges.",
+                    assumptions=["Assumes no rent increase during the term."],
+                )
+            )
+    missing = [label for key, label in (("rent", "Monthly rent"), ("deposit", "Security deposit")) if not f.fact(key)]
+    return _finish("rental", checks, [], missing)
+
+
+def verify_insurance(facts: List[Fact], currency: str, ocr: bool) -> VerificationReport:
+    f = _Facts(facts)
+    checks: List[VerificationCheck] = []
+    cover, premium = f.amount("sum_insured"), f.amount("premium")
+    copay_fact = f.fact("copayment")
+    if cover and premium:
+        share = (premium / cover * 100).quantize(Decimal("0.01"))
+        checks.append(
+            VerificationCheck(
+                key="premium_share",
+                label="Premium per Rs. 100 of cover",
+                status="verified",
+                formula="Premium ÷ sum insured × 100",
+                inputs=[_input("Premium", premium, currency), _input("Sum insured", cover, currency)],
+                calculated_value="%s%%" % share,
+                explanation="You pay %s for every Rs. 100 of cover. Use this to compare quotes." % money.fmt(premium / cover * 100, currency),
+            )
+        )
+    if copay_fact and cover:
+        pct = money.parse_percent(copay_fact.value)
+        if pct is not None:
+            example = Decimal(100000) if cover >= 100000 else cover
+            share = money.pct_of(example, pct)
+            checks.append(
+                VerificationCheck(
+                    key="copay_example",
+                    label="Co-payment on a %s claim" % money.fmt(example, currency),
+                    status="verified",
+                    formula="%s × %s%%" % (money.fmt(example, currency), _num(pct)),
+                    inputs=[_input("Example claim", example, currency, source="calculated"),
+                            _input("Co-payment", pct, currency, percent=True, page=copay_fact.page)],
+                    calculated_value=money.fmt(share, currency),
+                    explanation="On an admissible claim of this size you would pay %s yourself." % money.fmt(share, currency),
+                    assumptions=["Illustrative claim amount chosen by Doc Decode, not taken from the policy."],
+                    page=copay_fact.page,
+                    source_text=copay_fact.source_text,
+                )
+            )
+    missing = [label for key, label in (("sum_insured", "Sum insured"), ("premium", "Premium")) if not f.fact(key)]
+    return _finish("insurance", checks, [], missing)
+
+
+# ---------------------------------------------------------------------------
+
+def _finish(kind: str, checks: List[VerificationCheck], assumptions: List[str],
+            missing: List[str]) -> VerificationReport:
+    statuses = [c.status for c in checks]
     if "mismatch" in statuses:
         status = "mismatch"
-    elif "missing_information" in statuses:
-        status = "missing_information"
-    elif checks and all(s == "verified" for s in statuses):
-        status = "verified"
     elif "needs_attention" in statuses:
         status = "needs_attention"
+    elif statuses and all(s == "verified" for s in statuses):
+        status = "verified" if not missing else "missing_information"
+    elif missing:
+        status = "missing_information"
     else:
         status = "unable_to_verify"
 
-    total = len(checks)
-    agree = statuses.count("verified")
-    disagree = statuses.count("mismatch")
-    missing = statuses.count("missing_information")
-    if not checks:
-        headline = "No figures were found to check, so no arithmetic was run."
-    elif status == "mismatch":
-        headline = "%d of %d checks do not agree with the document's own figures." % (disagree, total)
+    mismatches = sum(1 for s in statuses if s == "mismatch")
+    attention = sum(1 for s in statuses if s == "needs_attention")
+    passed = sum(1 for s in statuses if s == "verified")
+    if status == "mismatch":
+        headline = "%d calculation%s on this document do%s not add up." % (
+            mismatches, "s" if mismatches != 1 else "", "es" if mismatches == 1 else "")
+    elif status == "needs_attention":
+        headline = "%d figure%s need%s checking against the original." % (
+            attention, "s" if attention != 1 else "", "s" if attention == 1 else "")
     elif status == "verified":
-        headline = "All %d checks agree with the document's own figures." % total
+        headline = "All %d calculation%s check out." % (passed, "s" if passed != 1 else "")
     elif status == "missing_information":
-        headline = "%d of %d checks agree. %d could not run because the document does not state what they need." % (
-            agree, total, missing,
+        headline = (
+            "%d check%s passed, but some figures needed for a full check are missing."
+            % (passed, "s" if passed != 1 else "") if passed
+            else "Some figures needed to verify this document are missing."
         )
     else:
-        headline = "%d of %d checks agree." % (agree, total)
+        headline = "Doc Decode could not find figures on this document that it can check."
 
-    missing_fields = [check.label for check in checks if check.status == "missing_information"]
     return VerificationReport(
-        applicable=True,
-        kind=doc_type,
-        kind_label=_KIND_FOR_TYPE.get(doc_type, label_for(doc_type)),
+        applicable=bool(checks) or bool(missing),
+        kind=kind,
+        kind_label=KIND_LABELS.get(kind, "Calculations"),
         status=status,
         headline=headline,
         checks=checks,
         assumptions=assumptions,
-        missing_fields=missing_fields,
+        missing_fields=missing,
     )
+
+
+def verify(doc_type: str, facts: List[Fact], items: List[LineItem], currency: str = "Rs.",
+           ocr: bool = False) -> VerificationReport:
+    if doc_type in ("invoice", "hospital_bill", "purchase_order"):
+        kind = {"hospital_bill": "hospital_bill", "purchase_order": "purchase_order"}.get(doc_type, "invoice")
+        return verify_invoice(facts, items, currency, ocr, kind=kind)
+    if doc_type == "loan_agreement":
+        return verify_loan(facts, currency, ocr)
+    if doc_type in ("gst_notice", "government_notice"):
+        return verify_demand(facts, currency, ocr)
+    if doc_type == "tender":
+        return verify_tender(facts, currency, ocr)
+    if doc_type == "rental_agreement":
+        return verify_rental(facts, currency, ocr)
+    if doc_type == "insurance":
+        return verify_insurance(facts, currency, ocr)
+    # Any other document that still carries an invoice-shaped table gets the
+    # same arithmetic; otherwise there is nothing honest to verify.
+    if items:
+        return verify_invoice(facts, items, currency, ocr, kind="invoice")
+    return VerificationReport(applicable=False, kind="none", status="unable_to_verify",
+                              headline="This document type has no calculations to verify.")

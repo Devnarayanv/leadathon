@@ -5,39 +5,33 @@ import { COMPARE_RESULT, VERIFY, EVIDENCE } from "../../labels.js";
 
 function CheckRow({ check, language }) {
   return (
-    <li className="py-3 first:pt-0 last:pb-0">
+    <li className="rounded-xl bg-sunken p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium">{check.label}</p>
+        <p className="text-[0.95rem] font-semibold">{check.label}</p>
         <StatusChip map={VERIFY} status={check.status} language={language} />
       </div>
       {check.formula && (
         <p className="mt-1 font-mono text-xs text-ink-soft">{check.formula}</p>
       )}
-      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-        {check.document_value != null && (
-          <>
-            <dt className="text-ink-faint">{ws(language, "documentValue")}</dt>
-            <dd className="tabular-nums">{check.document_value}</dd>
-          </>
-        )}
-        {check.calculated_value != null && (
-          <>
-            <dt className="text-ink-faint">{ws(language, "calculated")}</dt>
-            <dd className="tabular-nums">{check.calculated_value}</dd>
-          </>
-        )}
-        {check.difference != null && (
-          <>
-            <dt className="text-ink-faint">{ws(language, "difference")}</dt>
-            <dd className="tabular-nums">{check.difference}</dd>
-          </>
-        )}
+      <dl className="mt-3 grid gap-2 sm:grid-cols-3">
+        {[
+          ["documentValue", check.document_value],
+          ["calculated", check.calculated_value],
+          ["difference", check.difference],
+        ]
+          .filter(([, value]) => value != null)
+          .map(([key, value]) => (
+            <div key={key} className="rounded-lg bg-surface px-3 py-2">
+              <dt className="text-xs text-ink-faint">{ws(language, key)}</dt>
+              <dd className="mt-0.5 text-sm font-semibold tabular-nums">{value}</dd>
+            </div>
+          ))}
       </dl>
       {check.explanation && (
-        <p className="mt-2 text-xs leading-relaxed text-ink-soft">{check.explanation}</p>
+        <p className="mt-3 text-[0.82rem] leading-relaxed text-ink-soft">{check.explanation}</p>
       )}
       {check.source_text && (
-        <p className="evidence mt-2">
+        <p className="evidence mt-3 !bg-surface">
           {check.page != null && `${ws(language, "page")} ${check.page} · `}
           {check.source_text}
         </p>
@@ -114,7 +108,7 @@ export default function VerifyPanel({
               <p className="text-sm leading-relaxed text-ink-soft">{report.headline}</p>
             )}
             {report.checks.length > 0 && (
-              <ul className="mt-4 divide-y divide-line">
+              <ul className="mt-4 space-y-2.5">
                 {report.checks.map((check) => (
                   <CheckRow key={check.key} check={check} language={language} />
                 ))}
