@@ -7,16 +7,18 @@ export default function ExtractedTextViewer({ pages, language }) {
   const withText = (pages ?? []).filter((page) => page.text.trim());
 
   return (
-    <section className="card p-5 sm:p-7">
+    <section className="card p-5 sm:p-6">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="flex w-full items-center gap-2 text-left"
         aria-expanded={open}
       >
-        <FileSearch size={17} className="text-ink-soft" />
-        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "extractedText")}</h2>
-        <span className="text-xs text-ink-soft">
+        <FileSearch size={16} className="text-ink-faint" />
+        <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
+          {t(language, "extractedText")}
+        </h2>
+        <span className="text-[0.72rem] text-ink-faint">
           {withText.length} / {pages?.length ?? 0} {t(language, "pages")}
         </span>
         <ChevronDown
@@ -27,7 +29,7 @@ export default function ExtractedTextViewer({ pages, language }) {
 
       {open && (
         <div className="mt-4 space-y-4">
-          <p className="text-xs text-ink-soft">
+          <p className="panel-note">
             This is exactly what the backend read. Every fact and clause above comes
             from this text.
           </p>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CornerDownLeft, Cpu, Loader2, MessageCircleQuestion, Ruler, SearchX } from "lucide-react";
+import { CornerDownLeft, Cpu, Loader2, Ruler, SearchX } from "lucide-react";
 import { t } from "../i18n.js";
 import { askDocument } from "../services/api.js";
 import AudioControls from "./AudioControls.jsx";
@@ -67,11 +67,11 @@ export default function AskDocument({ result, language, speech }) {
   };
 
   return (
-    <section id="ask" className="card scroll-mt-28 p-5 sm:p-7">
-      <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "askTitle")}</h2>
-      </div>
-      <p className="mt-1.5 text-xs text-ink-soft">
+    <section id="ask" className="card scroll-mt-24 p-5 sm:p-6">
+      <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
+        {t(language, "askTitle")}
+      </h2>
+      <p className="panel-note mt-2">
         Answers come only from your document&rsquo;s text. If it is not in there, the
         answer says so.
       </p>
@@ -91,42 +91,40 @@ export default function AskDocument({ result, language, speech }) {
           className="field flex-1"
         />
         <button type="submit" disabled={busy || question.trim().length < 2} className="btn-primary">
-          {busy ? <Loader2 size={16} className="animate-spin" /> : <CornerDownLeft size={16} />}
+          {busy ? <Loader2 size={15} className="animate-spin" /> : <CornerDownLeft size={15} />}
           {t(language, "ask")}
         </button>
       </form>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-1.5">
         {suggestions.map((item) => (
           <button
             key={item}
             type="button"
             onClick={() => submit(item)}
             disabled={busy}
-            className="chip bg-canvas text-ink-soft hover:text-ink"
+            className="chip border border-line bg-surface text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
           >
             {item}
           </button>
         ))}
       </div>
 
-      {error && (
-        <p className="mt-4 text-sm text-crit">{error}</p>
-      )}
+      {error && <p className="mt-4 text-sm text-crit">{error}</p>}
 
       {answer && (
-        <div className="mt-4 rounded-lg border border-line p-4">
+        <div className="mt-4 border-t border-line pt-4">
           <div className="flex flex-wrap items-center gap-2">
             {answer.grounded ? (
               <span className="chip bg-good-soft text-good">
-                {answer.source === "llm" ? <Cpu size={12} /> : <Ruler size={12} />}
+                {answer.source === "llm" ? <Cpu size={11} /> : <Ruler size={11} />}
                 {answer.source === "llm"
                   ? t(language, "bySource").llm
                   : t(language, "bySource").rules}
               </span>
             ) : (
               <span className="chip bg-warn-soft text-warn">
-                <SearchX size={12} />
+                <SearchX size={11} />
                 not found in document
               </span>
             )}
@@ -155,7 +153,7 @@ export default function AskDocument({ result, language, speech }) {
                   <li key={`${item.page}-${index}`}>
                     <p className="evidence">{item.text}</p>
                     {item.page != null && (
-                      <p className="mt-1 text-[0.7rem] text-ink-soft">
+                      <p className="mt-1 text-[0.7rem] text-ink-faint">
                         {t(language, "page")} {item.page}
                       </p>
                     )}

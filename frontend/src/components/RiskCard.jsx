@@ -34,7 +34,7 @@ export default function RiskCard({ clause, language, speech, defaultOpen = false
   return (
     <article
       id={`clause-${clause.id}`}
-      className={`card scroll-mt-20 border-l-2 p-5 ${style.accent}`}
+      className={`card scroll-mt-20 border-l-2 p-5 sm:p-6 ${style.accent}`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className={`chip ${style.chip}`}>
@@ -58,7 +58,7 @@ export default function RiskCard({ clause, language, speech, defaultOpen = false
         </p>
       )}
 
-      <p className="label mt-3">{t(language, "originalText")}</p>
+      <p className="label mt-4">{t(language, "originalText")}</p>
       <blockquote className="evidence mt-1.5">{clause.text}</blockquote>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">

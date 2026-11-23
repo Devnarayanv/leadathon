@@ -41,34 +41,46 @@ function tabsFor(result) {
 
 function TabButton({ item, active, onSelect, language, compact }) {
   const Icon = item.icon;
+  if (compact) {
+    return (
+      <button
+        type="button"
+        role="tab"
+        aria-selected={active}
+        onClick={() => onSelect(item.id)}
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-0.5 pt-1 pb-2.5 text-[0.78rem] font-medium transition-colors ${
+          active
+            ? "border-ink text-ink"
+            : "border-transparent text-ink-soft hover:text-ink"
+        }`}
+      >
+        <Icon size={14} />
+        {ws(language, item.id)}
+        {item.count > 0 && (
+          <span className="text-[0.7rem] tabular-nums text-ink-faint">{item.count}</span>
+        )}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
       role="tab"
       aria-selected={active}
       onClick={() => onSelect(item.id)}
-      className={`flex items-center gap-2.5 whitespace-nowrap transition-colors ${
-        compact
-          ? `rounded-full px-3.5 py-2 text-xs font-medium ${
-              active ? "bg-ink text-on-ink" : "bg-surface text-ink-soft hover:text-ink"
-            }`
-          : `w-full rounded-xl px-3 py-2.5 text-left text-sm ${
-              active
-                ? "bg-surface font-semibold text-ink"
-                : "text-ink-soft hover:bg-surface/60 hover:text-ink"
-            }`
+      className={`flex w-full items-center gap-2.5 rounded-md border px-3 py-2 text-left text-[0.85rem] transition-colors ${
+        active
+          ? "border-line bg-surface font-medium text-ink shadow-[0_1px_2px_rgb(16_18_21/0.04)]"
+          : "border-transparent text-ink-soft hover:bg-surface/60 hover:text-ink"
       }`}
     >
-      <Icon size={compact ? 14 : 16} className={active && !compact ? "text-brand" : ""} />
-      <span className={compact ? "" : "flex-1"}>{ws(language, item.id)}</span>
+      <Icon size={15} className={active ? "text-brand" : "text-ink-faint"} />
+      <span className="flex-1">{ws(language, item.id)}</span>
       {item.count > 0 && (
         <span
-          className={`min-w-5 rounded-full px-1.5 text-center text-[0.7rem] tabular-nums ${
-            active
-              ? compact
-                ? "bg-on-ink/20"
-                : "bg-brand-soft text-brand-ink"
-              : "bg-sunken text-ink-faint"
+          className={`text-[0.7rem] tabular-nums ${
+            active ? "text-ink-soft" : "text-ink-faint"
           }`}
         >
           {item.count}
@@ -105,11 +117,12 @@ export default function Analysis({
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-10">
-      <div className="grid gap-8 lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:gap-10">
+    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
+      <div className="grid gap-8 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-9">
         {/* Sidebar: section navigation and explanation settings. */}
         <aside className="hidden lg:block">
-          <div className="sticky top-24 space-y-5">
+          <div className="sticky top-22 space-y-4">
+            <p className="eyebrow px-3">{ws(language, "sections")}</p>
             <nav role="tablist" aria-label="Workspace" className="space-y-0.5">
               {tabs.map((item) => (
                 <TabButton
@@ -149,7 +162,7 @@ export default function Analysis({
 
         <main className="min-w-0">
           <header className="rise">
-            <p className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+            <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`chip ${uncertain ? "bg-warn-soft text-warn" : "bg-brand-soft text-brand-ink"}`}
               >
@@ -157,26 +170,30 @@ export default function Analysis({
               </span>
               {result.ocr_used && (
                 <span className="chip bg-note-soft text-note">
-                  <ScanLine size={12} />
+                  <ScanLine size={11} />
                   OCR
                 </span>
               )}
-            </p>
+            </div>
             <h1
-              className="mt-3 truncate text-2xl font-semibold tracking-[-0.03em] sm:text-[2.1rem] sm:leading-tight"
+              className="mt-3 text-[1.55rem] leading-tight font-semibold break-words tracking-[-0.03em] sm:text-[1.95rem]"
               title={result.filename}
             >
               {result.filename}
             </h1>
-            <p className="mt-1.5 text-sm text-ink-faint tabular-nums">
-              {result.page_count} {t(language, "pages")} ·{" "}
-              {(result.file_size_bytes / 1024).toFixed(0)} KB · analysed in{" "}
-              {(result.duration_ms / 1000).toFixed(1)}s
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[0.78rem] tabular-nums text-ink-faint">
+              <span>
+                {result.page_count} {t(language, "pages")}
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>{(result.file_size_bytes / 1024).toFixed(0)} KB</span>
+              <span aria-hidden="true">·</span>
+              <span>analysed in {(result.duration_ms / 1000).toFixed(1)}s</span>
             </p>
           </header>
 
           {/* Mobile and tablet: settings and horizontal section tabs. */}
-          <div className="mt-5 space-y-3 lg:hidden">
+          <div className="mt-5 lg:hidden">
             <div className="flex flex-wrap items-center gap-2">
               <LanguageSelector
                 language={language}
@@ -203,9 +220,9 @@ export default function Analysis({
           <nav
             role="tablist"
             aria-label="Workspace"
-            className="sticky top-16 z-10 -mx-4 mt-4 overflow-x-auto bg-canvas px-4 py-2.5 sm:-mx-8 sm:px-8 lg:hidden"
+            className="sticky top-14 z-10 -mx-4 mt-4 overflow-x-auto border-b border-line bg-canvas px-4 sm:-mx-8 sm:px-8 lg:hidden"
           >
-            <div className="flex gap-1.5">
+            <div className="flex gap-5">
               {tabs.map((item) => (
                 <TabButton
                   key={item.id}
@@ -220,16 +237,16 @@ export default function Analysis({
           </nav>
 
           {result.warnings?.length > 0 && (
-            <section className="mt-6 rounded-[var(--radius-card)] bg-warn-soft px-5 py-4">
-              <p className="flex items-center gap-2 text-sm font-semibold text-warn">
-                <AlertTriangle size={15} />
+            <section className="mt-5 rounded-[var(--radius-card)] border border-warn/25 bg-warn-soft px-4 py-3">
+              <p className="flex items-center gap-2 text-[0.82rem] font-medium text-warn">
+                <AlertTriangle size={14} />
                 {t(language, "warnings")}
               </p>
-              <ul className="mt-2 space-y-1">
+              <ul className="mt-1.5 space-y-1">
                 {result.warnings.map((warning) => (
                   <li
                     key={warning}
-                    className="text-[0.82rem] leading-relaxed whitespace-pre-wrap text-ink-soft"
+                    className="text-[0.8rem] leading-relaxed whitespace-pre-wrap text-ink-soft"
                   >
                     {warning}
                   </li>
@@ -238,9 +255,9 @@ export default function Analysis({
             </section>
           )}
 
-          <div role="tabpanel" key={tab} className="rise mt-6">
+          <div role="tabpanel" key={tab} className="rise mt-5">
             {tab === "overview" && (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <RiskSummary
                   clauses={result.clauses}
                   counts={result.attention_counts}
@@ -252,7 +269,7 @@ export default function Analysis({
             )}
 
             {tab === "data" && (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <KeyFacts facts={result.facts} language={language} />
                 <ExtractedTextViewer pages={result.pages} language={language} />
               </div>
@@ -292,7 +309,7 @@ export default function Analysis({
             )}
           </div>
 
-          <p className="mt-10 text-xs leading-relaxed text-ink-faint">
+          <p className="mt-8 border-t border-line pt-4 text-[0.72rem] leading-relaxed text-ink-faint">
             Doc Decode flags wording that deserves attention and explains it in simpler
             words. It does not decide whether anything is legal, valid or fair, and it
             can miss clauses. Check the original document and take professional advice

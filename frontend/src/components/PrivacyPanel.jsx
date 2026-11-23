@@ -43,9 +43,9 @@ export default function PrivacyPanel({ open, onClose }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
-      <div className="rise max-h-[90vh] w-full max-w-2xl overflow-auto rounded-t-3xl bg-surface p-6 shadow-[0_30px_80px_-20px_rgb(0_0_0/0.45)] sm:rounded-3xl sm:p-8">
+      <div className="rise max-h-[90vh] w-full max-w-2xl overflow-auto rounded-t-[var(--radius-card)] border border-line bg-surface p-6 shadow-[0_30px_80px_-20px_rgb(0_0_0/0.35)] sm:rounded-[var(--radius-card)] sm:p-7">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="flex items-center gap-2.5 text-xl font-semibold tracking-[-0.02em]">
+          <h2 className="flex items-center gap-2.5 text-[1.15rem] font-semibold tracking-[-0.02em]">
             <ShieldCheck size={18} className="text-good" />
             Privacy and processing
           </h2>
@@ -54,16 +54,16 @@ export default function PrivacyPanel({ open, onClose }) {
           </button>
         </div>
 
-        <dl className="mt-6 grid gap-2.5 sm:grid-cols-2">
+        <dl className="mt-5 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2">
           {POINTS.map(([title, body]) => (
-            <div key={title} className="rounded-2xl bg-sunken p-4">
-              <dt className="text-sm font-medium">{title}</dt>
-              <dd className="mt-0.5 text-xs leading-relaxed text-ink-soft">{body}</dd>
+            <div key={title} className="bg-surface p-4">
+              <dt className="text-[0.82rem] font-medium">{title}</dt>
+              <dd className="mt-1 text-[0.76rem] leading-relaxed text-ink-soft">{body}</dd>
             </div>
           ))}
         </dl>
 
-        <button type="button" onClick={onClose} className="btn-primary mt-6 w-full !py-2.5">
+        <button type="button" onClick={onClose} className="btn-primary mt-5 w-full !py-2.5">
           Close
         </button>
       </div>

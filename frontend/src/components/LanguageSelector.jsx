@@ -25,18 +25,16 @@ export default function LanguageSelector({
         <Languages size={14} />
         {t(language, "language")}
       </span>
-      <div className="inline-flex rounded-lg border border-line bg-surface p-0.5">
+      <div className="seg" role="group" aria-label={t(language, "language")}>
         {OPTIONS.map((option) => (
           <button
             key={option.value}
             type="button"
             disabled={busy}
+            data-active={option.value === language}
+            aria-pressed={option.value === language}
             onClick={() => option.value !== language && onChange(option.value)}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 ${
-              option.value === language
-                ? "bg-ink text-on-ink"
-                : "text-ink-soft hover:text-ink"
-            }`}
+            className="seg-item"
           >
             {option.label}
           </button>

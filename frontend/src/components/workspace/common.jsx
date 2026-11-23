@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ChevronDown, Quote } from "lucide-react";
 import { labelOf, toneOf } from "../../labels.js";
 
 // Workspace-only strings. Malayalam falls back to English where a translation
@@ -10,7 +12,9 @@ const WS = {
   findings: { en: "Findings & actions", ml: "കണ്ടെത്തലുകൾ" },
   tender: { en: "Tender checklist", ml: "ടെൻഡർ പരിശോധന" },
   ask: { en: "Ask Doc Decode", ml: "ചോദിക്കൂ" },
+  sections: { en: "Sections", ml: "വിഭാഗങ്ങൾ" },
   evidence: { en: "Evidence", ml: "തെളിവ്" },
+  documentText: { en: "Document text", ml: "രേഖയിലെ വാചകം" },
   original: { en: "Original text", ml: "മൂല വാചകം" },
   page: { en: "Page", ml: "പേജ്" },
   description: { en: "Description", ml: "വിവരണം" },
@@ -48,8 +52,8 @@ const WS = {
   lineItems: { en: "Line items", ml: "ഇനങ്ങൾ" },
   noLineItems: { en: "No line items found in this document.", ml: "ഇനങ്ങൾ കണ്ടെത്തിയില്ല." },
   tenderIntro: {
-    en: "Requirements found in the tender. Doc Decode does not decide eligibility: it lists what the document asks for and marks each item as not yet assessed until you check it against your own papers.",
-    ml: "ടെൻഡറിലെ ആവശ്യങ്ങൾ. യോഗ്യത Doc Decode തീരുമാനിക്കില്ല; ഓരോന്നും നിങ്ങളുടെ രേഖകളുമായി പരിശോധിക്കുന്നതുവരെ ഇതുവരെ പരിശോധിച്ചിട്ടില്ല എന്ന് കാണിക്കും.",
+    en: "Every requirement the tender asks for, listed in one place. Doc Decode does not decide eligibility — mark each row once you have checked it against your own papers.",
+    ml: "ടെൻഡർ ആവശ്യപ്പെടുന്ന എല്ലാ കാര്യങ്ങളും ഒരിടത്ത്. യോഗ്യത Doc Decode തീരുമാനിക്കില്ല; നിങ്ങളുടെ രേഖകളുമായി പരിശോധിച്ച ശേഷം ഓരോ വരിയും അടയാളപ്പെടുത്തുക.",
   },
   noRequirements: {
     en: "No eligibility requirements were found in this document.",
@@ -57,6 +61,10 @@ const WS = {
   },
   mandatory: { en: "Mandatory", ml: "നിർബന്ധം" },
   optional: { en: "Optional or unclear", ml: "ഐച്ഛികം / വ്യക്തമല്ല" },
+  assessed: { en: "assessed", ml: "പരിശോധിച്ചു" },
+  meetsShort: { en: "Meets", ml: "പാലിക്കുന്നു" },
+  doesNotMeetShort: { en: "Does not meet", ml: "പാലിക്കുന്നില്ല" },
+  clearMark: { en: "Clear mark", ml: "അടയാളം മാറ്റുക" },
   dueOn: { en: "Due", ml: "അവസാന തീയതി" },
   markDone: { en: "Done", ml: "ചെയ്തു" },
   priority: { en: "Priority", ml: "മുൻഗണന" },
@@ -95,20 +103,57 @@ export function StatusChip({ map, status, language, className = "" }) {
   );
 }
 
-export function Panel({ title, action, children, id }) {
+// Panel: eyebrow (optional), heading, an optional right-side action, then the
+// body. The hairline above the body keeps every tab on the same rhythm.
+export function Panel({ title, eyebrow, action, children, id }) {
   return (
-    <section id={id} className="card p-5 sm:p-7">
+    <section id={id} className="card p-5 sm:p-6">
       {(title || action) && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-          {title && <h2 className="text-lg font-semibold tracking-[-0.02em]">{title}</h2>}
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <div className="min-w-0">
+            {eyebrow && <p className="eyebrow mb-1.5">{eyebrow}</p>}
+            {title && (
+              <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
+                {title}
+              </h2>
+            )}
+          </div>
           {action}
         </div>
       )}
-      {children}
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
 
 export function Empty({ children }) {
-  return <p className="text-sm leading-relaxed text-ink-soft">{children}</p>;
+  return <p className="text-[0.82rem] leading-relaxed text-ink-soft">{children}</p>;
+}
+
+// The document's own wording, folded away by default. Panels show our summary;
+// the quoted sentence is one click away and never mixed into the reading flow.
+export function SourceText({ text, page, language, className = "" }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 text-[0.72rem] font-medium text-ink-faint transition-colors hover:text-ink"
+      >
+        <Quote size={12} className="shrink-0" />
+        {ws(language, "documentText")}
+        {page != null && (
+          <span className="tabular-nums">· {ws(language, "page")} {page}</span>
+        )}
+        <ChevronDown
+          size={12}
+          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && <p className="evidence mt-2">{text}</p>}
+    </div>
+  );
 }

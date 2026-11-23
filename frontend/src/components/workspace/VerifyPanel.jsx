@@ -1,41 +1,45 @@
 import { useRef, useState } from "react";
 import { GitCompareArrows, Loader2, Upload } from "lucide-react";
-import { Empty, Panel, StatusChip, ws } from "./common.jsx";
+import { Empty, Panel, SourceText, StatusChip, ws } from "./common.jsx";
 import { COMPARE_RESULT, VERIFY, EVIDENCE } from "../../labels.js";
 
 function CheckRow({ check, language }) {
+  const values = [
+    ["documentValue", check.document_value],
+    ["calculated", check.calculated_value],
+    ["difference", check.difference],
+  ].filter(([, value]) => value != null);
+
   return (
-    <li className="rounded-xl bg-sunken p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-[0.95rem] font-semibold">{check.label}</p>
+    <li className="py-4 first:pt-3 last:pb-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <p className="text-[0.88rem] font-medium">{check.label}</p>
         <StatusChip map={VERIFY} status={check.status} language={language} />
       </div>
       {check.formula && (
-        <p className="mt-1 font-mono text-xs text-ink-soft">{check.formula}</p>
+        <p className="mt-1 font-mono text-[0.72rem] text-ink-faint">{check.formula}</p>
       )}
-      <dl className="mt-3 grid gap-2 sm:grid-cols-3">
-        {[
-          ["documentValue", check.document_value],
-          ["calculated", check.calculated_value],
-          ["difference", check.difference],
-        ]
-          .filter(([, value]) => value != null)
-          .map(([key, value]) => (
-            <div key={key} className="rounded-lg bg-surface px-3 py-2">
-              <dt className="text-xs text-ink-faint">{ws(language, key)}</dt>
-              <dd className="mt-0.5 text-sm font-semibold tabular-nums">{value}</dd>
+      {values.length > 0 && (
+        <dl className="mt-2.5 flex flex-wrap gap-x-8 gap-y-2">
+          {values.map(([key, value]) => (
+            <div key={key}>
+              <dt className="text-[0.68rem] tracking-[0.04em] uppercase text-ink-faint">
+                {ws(language, key)}
+              </dt>
+              <dd className="mt-0.5 text-[0.85rem] font-semibold tabular-nums">{value}</dd>
             </div>
           ))}
-      </dl>
+        </dl>
+      )}
       {check.explanation && (
-        <p className="mt-3 text-[0.82rem] leading-relaxed text-ink-soft">{check.explanation}</p>
+        <p className="mt-2 text-[0.8rem] leading-relaxed text-ink-soft">{check.explanation}</p>
       )}
-      {check.source_text && (
-        <p className="evidence mt-3 !bg-surface">
-          {check.page != null && `${ws(language, "page")} ${check.page} · `}
-          {check.source_text}
-        </p>
-      )}
+      <SourceText
+        className="mt-2"
+        text={check.source_text}
+        page={check.page}
+        language={language}
+      />
     </li>
   );
 }
@@ -44,20 +48,20 @@ function ComparisonTable({ rows, language }) {
   if (!rows?.length) return null;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[32rem] text-left text-xs">
+      <table className="w-full min-w-[32rem] border-collapse text-left text-[0.8rem]">
         <tbody className="divide-y divide-line">
           {rows.map((row, index) => (
             <tr key={`${row.label}-${index}`} className="align-top">
-              <td className="py-2 pr-3 font-medium">{row.label}</td>
-              <td className="py-2 pr-3 tabular-nums text-ink-soft">
+              <td className="py-2.5 pr-3 font-medium">{row.label}</td>
+              <td className="py-2.5 pr-3 tabular-nums text-ink-soft">
                 {row.left_value ?? "—"}
               </td>
-              <td className="py-2 pr-3 tabular-nums text-ink-soft">
+              <td className="py-2.5 pr-3 tabular-nums text-ink-soft">
                 {row.right_value ?? "—"}
               </td>
-              <td className="py-2">
+              <td className="py-2.5">
                 <StatusChip map={COMPARE_RESULT} status={row.result} language={language} />
-                {row.note && <p className="mt-1 text-ink-faint">{row.note}</p>}
+                {row.note && <p className="mt-1 text-[0.72rem] text-ink-faint">{row.note}</p>}
               </td>
             </tr>
           ))}
@@ -104,11 +108,9 @@ export default function VerifyPanel({
           <Empty>{ws(language, "verifyNotApplicable")}</Empty>
         ) : (
           <>
-            {report.headline && (
-              <p className="text-sm leading-relaxed text-ink-soft">{report.headline}</p>
-            )}
+            {report.headline && <p className="panel-note">{report.headline}</p>}
             {report.checks.length > 0 && (
-              <ul className="mt-4 space-y-2.5">
+              <ul className="mt-3 divide-y divide-line border-t border-line">
                 {report.checks.map((check) => (
                   <CheckRow key={check.key} check={check} language={language} />
                 ))}
@@ -117,7 +119,7 @@ export default function VerifyPanel({
             {report.missing_fields.length > 0 && (
               <div className="mt-4">
                 <p className="label">{ws(language, "missingFields")}</p>
-                <ul className="mt-1.5 list-inside list-disc text-xs text-ink-soft">
+                <ul className="mt-1.5 list-inside list-disc text-[0.8rem] text-ink-soft">
                   {report.missing_fields.map((field) => (
                     <li key={field}>{field}</li>
                   ))}
@@ -127,7 +129,7 @@ export default function VerifyPanel({
             {report.assumptions.length > 0 && (
               <div className="mt-4">
                 <p className="label">{ws(language, "assumptions")}</p>
-                <ul className="mt-1.5 list-inside list-disc text-xs text-ink-soft">
+                <ul className="mt-1.5 list-inside list-disc text-[0.8rem] text-ink-soft">
                   {report.assumptions.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
@@ -142,32 +144,35 @@ export default function VerifyPanel({
         {result.line_items.length === 0 ? (
           <Empty>{ws(language, "noLineItems")}</Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[30rem] text-left text-xs">
-              <thead className="text-ink-faint">
-                <tr>
-                  <th className="pb-2 font-medium">{ws(language, "description")}</th>
-                  <th className="pb-2 font-medium">{ws(language, "qty")}</th>
-                  <th className="pb-2 font-medium">{ws(language, "unitPrice")}</th>
-                  <th className="pb-2 font-medium">{ws(language, "amount")}</th>
-                  <th className="pb-2 font-medium">{ws(language, "page")}</th>
+          <div className="-mx-1 overflow-x-auto">
+            <table className="w-full min-w-[30rem] border-collapse text-left text-[0.8rem]">
+              <thead className="border-b border-line">
+                <tr className="text-[0.68rem] tracking-[0.05em] uppercase text-ink-faint">
+                  <th className="pb-2 pr-3 font-medium">{ws(language, "description")}</th>
+                  <th className="pb-2 pr-3 text-right font-medium">{ws(language, "qty")}</th>
+                  <th className="pb-2 pr-3 text-right font-medium">{ws(language, "unitPrice")}</th>
+                  <th className="pb-2 pr-3 text-right font-medium">{ws(language, "amount")}</th>
+                  <th className="pb-2 text-right font-medium">{ws(language, "page")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {result.line_items.map((item, index) => (
                   <tr key={index}>
-                    <td className="py-2 pr-3">{item.description}</td>
-                    <td className="py-2 pr-3 tabular-nums">{item.quantity ?? "—"}</td>
-                    <td className="py-2 pr-3 tabular-nums">{item.unit_price ?? "—"}</td>
-                    <td className="py-2 pr-3 tabular-nums">
+                    <td className="py-2.5 pr-3">{item.description}</td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums">{item.quantity ?? "—"}</td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums">{item.unit_price ?? "—"}</td>
+                    <td className="py-2.5 pr-3 text-right tabular-nums">
                       {item.amount ?? "—"}
                       {item.amount_was_computed && (
-                        <span className="ml-1">
-                          <StatusChip map={EVIDENCE} status="calculated" language={language} />
-                        </span>
+                        <StatusChip
+                          className="ml-1.5"
+                          map={EVIDENCE}
+                          status="calculated"
+                          language={language}
+                        />
                       )}
                     </td>
-                    <td className="py-2 tabular-nums">{item.page ?? "—"}</td>
+                    <td className="py-2.5 text-right tabular-nums text-ink-soft">{item.page ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -177,13 +182,13 @@ export default function VerifyPanel({
       </Panel>
 
       <Panel title={ws(language, "changeType")}>
-        <p className="text-xs leading-relaxed text-ink-soft">{ws(language, "changeTypeHint")}</p>
+        <p className="panel-note">{ws(language, "changeTypeHint")}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <select
             value={pickedType}
             onChange={(event) => setPickedType(event.target.value)}
             disabled={reclassifyBusy}
-            className="rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-ink"
+            className="field !w-auto !py-1.5 text-[0.8rem]"
           >
             {options.map((option) => (
               <option key={option.key} value={option.key}>
@@ -203,15 +208,19 @@ export default function VerifyPanel({
         </div>
       </Panel>
 
-      <Panel title={ws(language, "compareTitle")}>
-        <p className="text-xs leading-relaxed text-ink-soft">{ws(language, "compareHint")}</p>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.txt"
-          onChange={onFile}
-          className="hidden"
-        />
+      <Panel
+        title={ws(language, "compareTitle")}
+        action={
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.txt"
+            onChange={onFile}
+            className="hidden"
+          />
+        }
+      >
+        <p className="panel-note">{ws(language, "compareHint")}</p>
         <button
           type="button"
           className="btn-secondary mt-3 text-xs"
@@ -230,23 +239,25 @@ export default function VerifyPanel({
 
         {compareResult && (
           <div className="mt-4 border-t border-line pt-4">
-            <p className="flex items-center gap-1.5 text-sm font-medium">
-              <GitCompareArrows size={14} />
+            <p className="flex items-center gap-1.5 text-[0.85rem] font-medium">
+              <GitCompareArrows size={14} className="text-ink-faint" />
               {compareResult.left_label} / {compareResult.right_label}
             </p>
             {compareResult.headline && (
-              <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
+              <p className="mt-1 text-[0.8rem] leading-relaxed text-ink-soft">
                 {compareResult.headline}
               </p>
             )}
             {!compareResult.comparable ? (
-              <Empty>{ws(language, "noCompare")}</Empty>
+              <div className="mt-2">
+                <Empty>{ws(language, "noCompare")}</Empty>
+              </div>
             ) : (
               <div className="mt-3 space-y-4">
                 <ComparisonTable rows={compareResult.field_rows} language={language} />
                 <ComparisonTable rows={compareResult.item_rows} language={language} />
                 {compareResult.notes?.length > 0 && (
-                  <ul className="list-inside list-disc text-xs text-ink-soft">
+                  <ul className="list-inside list-disc text-[0.78rem] text-ink-soft">
                     {compareResult.notes.map((note) => (
                       <li key={note}>{note}</li>
                     ))}

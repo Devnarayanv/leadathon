@@ -1,20 +1,9 @@
 import { useMemo, useState } from "react";
-import {
-  AlertCircle,
-  Bell,
-  CalendarPlus,
-  Check,
-  Download,
-  ExternalLink,
-  Loader2,
-} from "lucide-react";
+import { AlertCircle, Bell, CalendarPlus, Check, Download, ExternalLink, Loader2 } from "lucide-react";
 import { CONFIDENCE_LABELS, t } from "../i18n.js";
 import { downloadCalendar } from "../services/api.js";
-import {
-  REMINDER_OPTIONS,
-  isExportable,
-  openGoogleCalendar,
-} from "../services/calendarLinks.js";
+import { SourceText } from "./workspace/common.jsx";
+import { REMINDER_OPTIONS, isExportable, openGoogleCalendar } from "../services/calendarLinks.js";
 
 function formatDate(iso) {
   if (!iso) return null;
@@ -87,30 +76,34 @@ export default function DeadlineList({ deadlines, filename, language }) {
 
   if (!deadlines?.length) {
     return (
-      <section id="deadlines" className="card p-5 sm:p-7">
-        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "deadlines")}</h2>
-        <p className="mt-1.5 text-sm text-ink-soft">{t(language, "noDeadlines")}</p>
+      <section id="deadlines" className="card p-5 sm:p-6">
+        <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
+          {t(language, "deadlines")}
+        </h2>
+        <p className="mt-2 text-[0.85rem] text-ink-soft">{t(language, "noDeadlines")}</p>
       </section>
     );
   }
 
   return (
-    <section id="deadlines" className="card p-5 sm:p-7">
+    <section id="deadlines" className="card p-5 sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "deadlines")}</h2>
-        <span className="text-xs text-ink-faint">{deadlines.length} found</span>
+        <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
+          {t(language, "deadlines")}
+        </h2>
+        <span className="text-[0.72rem] tabular-nums text-ink-faint">
+          {deadlines.length} found
+        </span>
       </div>
 
-      <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
-        {t(language, "deadlineHint")}
-      </p>
+      <p className="panel-note mt-2">{t(language, "deadlineHint")}</p>
 
-      <ul className="mt-4 divide-y divide-line">
+      <ul className="mt-4 divide-y divide-line border-t border-line">
         {deadlines.map((item) => {
           const checked = Boolean(verified[item.id]);
           const dated = isExportable(item);
           return (
-            <li key={item.id} className="py-3.5 first:pt-0 last:pb-0">
+            <li key={item.id} className="py-3.5">
               <div className="flex items-start gap-3">
                 {dated ? (
                   <button
@@ -119,83 +112,79 @@ export default function DeadlineList({ deadlines, filename, language }) {
                     aria-checked={checked}
                     onClick={() => toggle(item.id, !checked)}
                     title={t(language, "verified")}
-                    className={`mt-0.5 grid h-4.5 w-4.5 shrink-0 place-items-center rounded border transition-colors ${
+                    className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors ${
                       checked
                         ? "border-ink bg-ink text-on-ink"
                         : "border-line-strong bg-surface hover:border-ink-soft"
                     }`}
                   >
-                    {checked && <Check size={12} strokeWidth={3} />}
+                    {checked && <Check size={11} strokeWidth={3} />}
                   </button>
                 ) : (
-                  <span className="mt-0.5 h-4.5 w-4.5 shrink-0" />
+                  <span className="mt-0.5 h-4 w-4 shrink-0" />
                 )}
 
                 <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium">
-                    {formatDate(item.date_iso) ?? item.date_text}
-                    <span className="text-xs font-normal">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                    <p className="text-[0.85rem] font-medium tabular-nums">
+                      {formatDate(item.date_iso) ?? item.date_text}
+                    </p>
+                    <p className="text-[0.72rem]">
                       <Relative iso={item.date_iso} />
-                    </span>
+                    </p>
+                  </div>
+                  <p className="mt-0.5 text-[0.82rem] leading-relaxed text-ink-soft">
+                    {item.description}
                   </p>
-                  <p className="mt-0.5 text-xs text-ink-soft">{item.description}</p>
                   <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[0.7rem] text-ink-faint">
                     {item.page != null && (
-                      <span>
+                      <span className="tabular-nums">
                         {t(language, "page")} {item.page}
                       </span>
                     )}
-                    <span>·</span>
                     <span>
                       {CONFIDENCE_LABELS[language]?.[item.confidence] ?? item.confidence}
                     </span>
-                    <span>·</span>
-                    <span>&ldquo;{item.date_text}&rdquo;</span>
                     {item.recurrence && (
-                      <>
-                        <span>·</span>
-                        <span className="text-warn">Repeats: {item.recurrence}</span>
-                      </>
+                      <span className="text-warn">Repeats: {item.recurrence}</span>
                     )}
                     {item.evidence_status === "calculated" && (
-                      <>
-                        <span>·</span>
-                        <span className="text-warn">Calculated, check before export</span>
-                      </>
+                      <span className="text-warn">Calculated, check before export</span>
                     )}
                   </p>
 
-                  {dated && (
-                    <button
-                      type="button"
-                      onClick={() => openGoogleCalendar(item, filename)}
-                      className="btn-secondary mt-2.5 !px-2.5 !py-1.5 text-xs"
-                    >
-                      <CalendarPlus size={13} />
-                      Google Calendar
-                      <ExternalLink size={11} className="text-ink-faint" />
-                    </button>
-                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <SourceText text={item.source_text} language={language} />
+                    {dated && (
+                      <button
+                        type="button"
+                        onClick={() => openGoogleCalendar(item, filename)}
+                        className="inline-flex items-center gap-1 text-[0.72rem] font-medium text-ink-soft transition-colors hover:text-ink"
+                      >
+                        <CalendarPlus size={12} />
+                        Google Calendar
+                        <ExternalLink size={10} className="text-ink-faint" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              <p className="evidence mt-2.5 ml-7.5">{item.source_text}</p>
             </li>
           );
         })}
       </ul>
 
       {datedDeadlines.length > 0 && (
-        <div className="mt-5 border-t border-line pt-4">
+        <div className="mt-4 border-t border-line pt-4">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className="flex items-center gap-1.5 text-xs text-ink-soft">
+            <span className="flex items-center gap-1.5 text-[0.78rem] text-ink-soft">
               <Bell size={13} />
               Remind me
             </span>
             <select
               value={reminderDays}
               onChange={(event) => setReminderDays(Number(event.target.value))}
-              className="rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-xs text-ink outline-none focus:border-ink"
+              className="field !w-auto !px-2.5 !py-1.5 text-xs"
             >
               {REMINDER_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -210,39 +199,32 @@ export default function DeadlineList({ deadlines, filename, language }) {
               disabled={!exportable.length || busy}
               className="btn-primary ml-auto text-xs"
             >
-              {busy ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Download size={14} />
-              )}
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Download .ics
               {exportable.length > 0 && ` (${exportable.length})`}
             </button>
           </div>
 
           <p className="mt-2.5 text-[0.7rem] leading-relaxed text-ink-faint">
-            The <strong className="font-medium">.ics</strong> file carries the
-            reminder you chose and stays on your machine &mdash; open it in any
-            calendar app. <strong className="font-medium">Google Calendar</strong>{" "}
-            opens a prefilled event in a new tab: the date, the description and the
-            file name are sent to Google, the document text is not, and Google uses
-            your own calendar&rsquo;s default notification.
+            The <strong className="font-medium">.ics</strong> file carries the reminder you
+            chose and stays on your machine &mdash; open it in any calendar app.{" "}
+            <strong className="font-medium">Google Calendar</strong> opens a prefilled event
+            in a new tab: the date, the description and the file name are sent to Google,
+            the document text is not, and Google uses your own calendar&rsquo;s default
+            notification.
           </p>
 
           {!exportable.length && (
             <p className="mt-2 flex items-start gap-1.5 text-[0.7rem] text-ink-faint">
               <AlertCircle size={12} className="mt-0.5 shrink-0" />
-              Tick the dates you have checked against the document to enable the
-              download.
+              Tick the dates you have checked against the document to enable the download.
             </p>
           )}
         </div>
       )}
 
       {error && (
-        <p className="mt-3 rounded-lg bg-crit-soft px-3 py-2.5 text-sm text-crit">
-          {error}
-        </p>
+        <p className="mt-3 rounded-lg bg-crit-soft px-3 py-2.5 text-sm text-crit">{error}</p>
       )}
     </section>
   );

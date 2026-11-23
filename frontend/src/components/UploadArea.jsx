@@ -62,7 +62,7 @@ export default function UploadArea({
   const shownError = localError || error;
 
   return (
-    <div className="card p-3 sm:p-4">
+    <div className="card p-3">
       <div
         onDragOver={(event) => {
           event.preventDefault();
@@ -84,23 +84,23 @@ export default function UploadArea({
         role="button"
         tabIndex={file ? -1 : 0}
         aria-label="Choose a document to analyse"
-        className={`group rounded-xl border-2 border-dashed px-6 py-14 text-center transition-colors sm:py-16 ${
+        className={`group rounded-lg border border-dashed px-6 py-10 text-center transition-colors sm:py-12 ${
           dragging
             ? "border-brand bg-brand-soft"
             : "border-line-strong bg-sunken hover:border-ink-faint"
         } ${file ? "" : "cursor-pointer"} ${busy ? "opacity-60" : ""}`}
       >
         <span
-          className={`mx-auto grid h-14 w-14 place-items-center rounded-full transition-transform duration-200 group-hover:-translate-y-0.5 ${
-            dragging ? "bg-brand text-on-ink" : "bg-ink text-on-ink"
+          className={`mx-auto grid h-11 w-11 place-items-center rounded-lg transition-colors ${
+            dragging ? "bg-brand text-on-ink" : "border border-line bg-surface text-ink-soft group-hover:text-ink"
           }`}
         >
-          <Upload size={22} />
+          <Upload size={18} />
         </span>
-        <p className="mt-5 text-base font-semibold">
+        <p className="mt-4 text-[0.9rem] font-medium">
           {dragging ? "Drop it here" : "Drop a document, or click to choose"}
         </p>
-        <p className="mt-1.5 text-[0.82rem] text-ink-faint">
+        <p className="mt-1 text-[0.78rem] text-ink-faint">
           PDF, JPG or PNG · up to {maxUploadMb} MB · processed on this machine
         </p>
         <input
@@ -113,27 +113,27 @@ export default function UploadArea({
       </div>
 
       {file && (
-        <div className="mt-3 flex items-center gap-3 rounded-xl bg-sunken px-4 py-3">
-          <FileText size={18} className="shrink-0 text-ink-soft" />
+        <div className="mt-2.5 flex items-center gap-3 rounded-lg border border-line px-3.5 py-2.5">
+          <FileText size={16} className="shrink-0 text-ink-soft" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{file.name}</p>
-            <p className="text-xs text-ink-faint">{formatSize(file.size)}</p>
+            <p className="truncate text-[0.82rem] font-medium">{file.name}</p>
+            <p className="text-[0.72rem] text-ink-faint">{formatSize(file.size)}</p>
           </div>
           <button
             type="button"
             onClick={clear}
             disabled={busy}
-            className="btn-ghost !px-2 !py-2"
+            className="btn-ghost !px-1.5 !py-1.5"
             title="Remove file"
           >
-            <X size={15} />
+            <X size={14} />
           </button>
         </div>
       )}
 
       {shownError && (
-        <p className="mt-3 flex items-start gap-2 rounded-xl bg-crit-soft px-4 py-3 text-sm text-crit">
-          <AlertCircle size={15} className="mt-0.5 shrink-0" />
+        <p className="mt-2.5 flex items-start gap-2 rounded-lg bg-crit-soft px-3.5 py-2.5 text-[0.82rem] text-crit">
+          <AlertCircle size={14} className="mt-0.5 shrink-0" />
           <span>{shownError}</span>
         </p>
       )}
@@ -142,11 +142,11 @@ export default function UploadArea({
         type="button"
         onClick={() => file && onAnalyse(file)}
         disabled={!file || busy}
-        className="btn-accent mt-3 w-full !py-3 text-[0.95rem]"
+        className="btn-accent mt-2.5 w-full !py-2.5"
       >
-        {busy ? <Loader2 size={16} className="animate-spin" /> : null}
+        {busy ? <Loader2 size={15} className="animate-spin" /> : null}
         {busy ? "Analysing..." : "Analyse document"}
-        {!busy && <ArrowRight size={16} />}
+        {!busy && <ArrowRight size={15} />}
       </button>
     </div>
   );

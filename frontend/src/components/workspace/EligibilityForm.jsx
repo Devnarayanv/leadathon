@@ -3,10 +3,19 @@ import { Loader2 } from "lucide-react";
 import { checkEligibility } from "../../services/api.js";
 
 const BUCKETS = [
-  { key: "meets", label: "Meets requirement" },
-  { key: "does_not_meet", label: "Does not appear to meet" },
-  { key: "missing", label: "Missing information" },
-  { key: "needs_verification", label: "Needs verification" },
+  { key: "meets", label: "Meets requirement", tone: "good" },
+  { key: "does_not_meet", label: "Does not appear to meet", tone: "crit" },
+  { key: "missing", label: "Missing information", tone: "warn" },
+  { key: "needs_verification", label: "Needs verification", tone: "note" },
+];
+
+const FIELDS = [
+  { key: "business_type", label: "Business type", hint: "e.g. private limited" },
+  { key: "turnover", label: "Annual turnover", hint: "e.g. Rs. 75 lakh" },
+  { key: "experience_years", label: "Years of experience", hint: "e.g. 6" },
+  { key: "certifications", label: "Certifications", hint: "comma separated" },
+  { key: "registrations", label: "Registrations", hint: "comma separated" },
+  { key: "documents", label: "Documents you hold", hint: "comma separated" },
 ];
 
 const splitList = (text) =>
@@ -55,68 +64,63 @@ export default function EligibilityForm({ requirements }) {
     }
   };
 
-  const inputClass =
-    "w-full rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-ink outline-none focus:border-ink";
-
   return (
-    <section className="mt-6 border-t border-line pt-5">
-      <h3 className="text-sm font-semibold">Eligibility assistant</h3>
-      <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-        Enter your own business facts. Doc Decode compares them with the
-        requirements above. It never says you are eligible.
+    <section className="card p-5 sm:p-6">
+      <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
+        Eligibility assistant
+      </h2>
+      <p className="panel-note mt-2">
+        Enter your own business facts. Doc Decode compares them with the requirements
+        above. It never says you are eligible.
       </p>
-      <form onSubmit={submit} className="mt-3 grid gap-3 sm:grid-cols-2">
-        <label className="text-xs text-ink-soft">
-          Business type
-          <input className={inputClass} value={form.business_type} onChange={update("business_type")} />
-        </label>
-        <label className="text-xs text-ink-soft">
-          Annual turnover (e.g. Rs. 75 lakh)
-          <input className={inputClass} value={form.turnover} onChange={update("turnover")} />
-        </label>
-        <label className="text-xs text-ink-soft">
-          Years of experience
-          <input
-            className={inputClass}
-            inputMode="decimal"
-            value={form.experience_years}
-            onChange={update("experience_years")}
-          />
-        </label>
-        <label className="text-xs text-ink-soft">
-          Certifications (comma separated)
-          <input className={inputClass} value={form.certifications} onChange={update("certifications")} />
-        </label>
-        <label className="text-xs text-ink-soft">
-          Registrations (comma separated)
-          <input className={inputClass} value={form.registrations} onChange={update("registrations")} />
-        </label>
-        <label className="text-xs text-ink-soft">
-          Documents you hold (comma separated)
-          <input className={inputClass} value={form.documents} onChange={update("documents")} />
-        </label>
+
+      <form onSubmit={submit} className="mt-4 grid gap-3 sm:grid-cols-2">
+        {FIELDS.map(({ key, label, hint }) => (
+          <label key={key} className="block">
+            <span className="label">{label}</span>
+            <input
+              className="field mt-1.5"
+              value={form[key]}
+              placeholder={hint}
+              inputMode={key === "experience_years" ? "decimal" : undefined}
+              onChange={update(key)}
+            />
+          </label>
+        ))}
         <div className="sm:col-span-2">
-          <button type="submit" disabled={busy || !requirements?.length} className="btn-primary text-xs">
+          <button
+            type="submit"
+            disabled={busy || !requirements?.length}
+            className="btn-primary text-xs"
+          >
             {busy && <Loader2 size={14} className="animate-spin" />}
             Check against requirements
           </button>
         </div>
       </form>
 
-      {error && <p className="mt-3 rounded-lg bg-crit-soft px-3 py-2.5 text-sm text-crit">{error}</p>}
+      {error && (
+        <p className="mt-3 rounded-lg bg-crit-soft px-3 py-2.5 text-sm text-crit">{error}</p>
+      )}
 
       {result && (
-        <div className="mt-4 space-y-3">
-          {result.headline && <p className="text-sm font-medium">{result.headline}</p>}
-          {BUCKETS.map(({ key, label }) => {
+        <div className="mt-5 space-y-4 border-t border-line pt-4">
+          {result.headline && <p className="text-[0.85rem] font-medium">{result.headline}</p>}
+          {BUCKETS.map(({ key, label, tone }) => {
             const rows = result[key] ?? [];
             if (!rows.length) return null;
             return (
               <div key={key}>
-                <p className="label">{label} ({rows.length})</p>
-                <ul className="mt-1.5 space-y-1.5">
+                <p className="eyebrow">
+                  {label} <span className="tabular-nums">({rows.length})</span>
+                </p>
+                <ul className="mt-2 space-y-1.5">
                   {rows.map((row, index) => (
-                    <li key={index} className="text-xs leading-relaxed text-ink-soft">
+                    <li
+                      key={index}
+                      className="border-l-2 pl-2.5 text-[0.8rem] leading-relaxed text-ink-soft"
+                      style={{ borderColor: `var(--color-${tone})` }}
+                    >
                       <span className="text-ink">{row.requirement}</span>
                       {row.detail && <span> · {row.detail}</span>}
                     </li>
@@ -126,7 +130,7 @@ export default function EligibilityForm({ requirements }) {
             );
           })}
           {result.disclaimer && (
-            <p className="text-[0.7rem] leading-relaxed text-ink-faint">{result.disclaimer}</p>
+            <p className="text-[0.72rem] leading-relaxed text-ink-faint">{result.disclaimer}</p>
           )}
         </div>
       )}

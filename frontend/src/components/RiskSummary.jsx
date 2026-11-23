@@ -19,18 +19,16 @@ export default function RiskSummary({ clauses, counts, language, onJump }) {
 
   return (
     <section className="card overflow-hidden">
-      <div className="grid sm:grid-cols-[minmax(11rem,auto)_1fr]">
-        <div
-          className={`flex items-baseline gap-3 px-6 py-5 sm:block sm:py-7 ${
-            total ? "bg-ink text-on-ink" : "bg-good-soft text-good"
-          }`}
-        >
-          <p className="text-4xl font-semibold sm:text-5xl tracking-[-0.04em] tabular-nums">{total}</p>
-          <p className="mt-1 text-sm opacity-75">{t(language, "clausesFlagged")}</p>
+      <div className="grid sm:grid-cols-[10rem_minmax(0,1fr)]">
+        <div className="flex items-baseline gap-2.5 border-b border-line px-5 py-4 sm:flex-col sm:justify-center sm:border-r sm:border-b-0 sm:py-5">
+          <p className="text-3xl leading-none font-semibold tabular-nums tracking-[-0.04em]">
+            {total}
+          </p>
+          <p className="text-[0.78rem] text-ink-soft">{t(language, "clausesFlagged")}</p>
         </div>
 
-        <div className="flex flex-col justify-center gap-3 px-5 py-5 sm:px-6">
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col justify-center gap-2.5 px-5 py-4">
+          <div className="flex flex-wrap gap-1.5">
             {levels.map((level) => {
               const style = LEVEL_STYLES[level] ?? LEVEL_STYLES.info;
               const Icon = style.icon;
@@ -39,22 +37,22 @@ export default function RiskSummary({ clauses, counts, language, onJump }) {
                   key={level}
                   type="button"
                   onClick={() => onJump?.(level)}
-                  className={`chip ${style.chip} !px-3 !py-1.5 text-[0.8rem] transition-transform hover:-translate-y-px active:scale-[0.97]`}
+                  className={`chip ${style.chip} !px-2.5 !py-1 transition-colors hover:opacity-85`}
                   title="Open findings"
                 >
-                  <Icon size={13} />
+                  <Icon size={12} />
                   {ATTENTION_LABELS[language]?.[level] ?? level}
                   <span className="font-semibold tabular-nums">{counts[level]}</span>
                 </button>
               );
             })}
             {!levels.length && (
-              <span className="chip bg-good-soft !px-3 !py-1.5 text-[0.8rem] text-good">
+              <span className="chip bg-good-soft !px-2.5 !py-1 text-good">
                 Nothing flagged
               </span>
             )}
           </div>
-          <p className="text-xs leading-relaxed text-ink-faint">
+          <p className="text-[0.72rem] leading-relaxed text-ink-faint">
             Attention indicators from the rule engine &mdash; not legal advice, and not a
             judgment that anything is illegal.
           </p>

@@ -8,58 +8,58 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, "Segoe UI",
     "Noto Sans Malayalam", sans-serif;
 
-  --color-canvas: #f4f4f2;
+  --color-canvas: #f5f6f7;
   --color-surface: #ffffff;
-  --color-sunken: #f0f0ed;
-  --color-line: #e6e6e2;
-  --color-line-strong: #d3d3cd;
-  --color-ink: #121212;
-  --color-ink-soft: #5c5c58;
-  --color-ink-faint: #8f8f89;
+  --color-sunken: #f2f3f5;
+  --color-line: #e4e6e9;
+  --color-line-strong: #d2d5da;
+  --color-ink: #101215;
+  --color-ink-soft: #575d66;
+  --color-ink-faint: #8a9099;
   --color-on-ink: #ffffff;
 
   --color-brand: #1f4fd8;
-  --color-brand-soft: #e9efff;
+  --color-brand-soft: #eaefff;
   --color-brand-ink: #173ca8;
 
-  --color-good: #157a3c;
-  --color-good-soft: #e8f5ec;
-  --color-warn: #9a5b00;
-  --color-warn-soft: #fbf1df;
-  --color-crit: #c0261a;
-  --color-crit-soft: #fcebe9;
-  --color-note: #0b6e74;
-  --color-note-soft: #e3f3f3;
+  --color-good: #14713b;
+  --color-good-soft: #e9f5ed;
+  --color-warn: #8f5500;
+  --color-warn-soft: #fbf2e2;
+  --color-crit: #b42318;
+  --color-crit-soft: #fcecea;
+  --color-note: #0a656b;
+  --color-note-soft: #e5f3f3;
 
-  --radius-card: 1rem;
+  --radius-card: 0.75rem;
 }
 
 /* Dark theme: same roles, redefined. Utilities read the variables, so every
    component follows without per-component dark: classes. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-canvas: #0e0e0f;
-    --color-surface: #18181a;
-    --color-sunken: #121214;
-    --color-line: #26262a;
-    --color-line-strong: #36363b;
-    --color-ink: #f2f2ef;
-    --color-ink-soft: #a8a8a2;
-    --color-ink-faint: #75756f;
-    --color-on-ink: #121212;
+    --color-canvas: #0d0e10;
+    --color-surface: #16181b;
+    --color-sunken: #111214;
+    --color-line: #26292d;
+    --color-line-strong: #363a40;
+    --color-ink: #eceef1;
+    --color-ink-soft: #a2a8b0;
+    --color-ink-faint: #787e87;
+    --color-on-ink: #0d0e10;
 
-    --color-brand: #6f93ff;
-    --color-brand-soft: #18224a;
-    --color-brand-ink: #a9bfff;
+    --color-brand: #7d9bff;
+    --color-brand-soft: #1a2244;
+    --color-brand-ink: #aec2ff;
 
-    --color-good: #5cc98a;
-    --color-good-soft: #122a1b;
-    --color-warn: #e7ad4a;
-    --color-warn-soft: #2d2210;
-    --color-crit: #ff7b6e;
-    --color-crit-soft: #33150f;
-    --color-note: #5ccbd0;
-    --color-note-soft: #0f2a2b;
+    --color-good: #5fcd8d;
+    --color-good-soft: #12291c;
+    --color-warn: #e7b055;
+    --color-warn-soft: #2b2210;
+    --color-crit: #ff8477;
+    --color-crit-soft: #321610;
+    --color-note: #5cc9cf;
+    --color-note-soft: #0f282a;
   }
 }
 
@@ -97,25 +97,26 @@ body {
 @layer components {
   .card {
     @apply rounded-[var(--radius-card)] border border-line bg-surface;
+    box-shadow: 0 1px 2px rgb(16 18 21 / 0.04);
   }
   /* Tailwind v4 cannot @apply one custom class inside another, so the shared
-     button rules are repeated rather than composed. Buttons are pills. */
+     button rules are repeated rather than composed. Buttons are 8px radius. */
   .btn,
   .btn-primary,
   .btn-secondary,
   .btn-ghost {
-    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-full
-      px-4 py-2 text-sm font-medium transition-[background-color,color,transform,border-color]
-      duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg
+      px-3.5 py-2 text-[0.82rem] font-medium transition-[background-color,color,transform,border-color,box-shadow]
+      duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40
       disabled:active:scale-100;
   }
   .btn-primary {
     @apply bg-ink text-on-ink hover:bg-ink/85;
   }
   .btn-accent {
-    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-full
-      bg-brand px-5 py-2.5 text-sm font-semibold text-on-ink transition-[background-color,transform]
-      duration-150 hover:bg-brand-ink active:scale-[0.97] disabled:cursor-not-allowed
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg
+      bg-brand px-4 py-2.5 text-sm font-semibold text-on-ink transition-[background-color,transform]
+      duration-150 hover:bg-brand-ink active:scale-[0.98] disabled:cursor-not-allowed
       disabled:opacity-40 disabled:active:scale-100;
   }
   .btn-secondary {
@@ -124,37 +125,90 @@ body {
   .btn-ghost {
     @apply text-ink-soft hover:bg-sunken hover:text-ink;
   }
+  /* Status chip: small, squared, tinted by meaning only. */
   .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[0.7rem] font-medium;
+  }
+  /* Section eyebrow above a heading. */
+  .eyebrow {
+    @apply text-[0.68rem] font-semibold uppercase tracking-[0.09em] text-ink-faint;
   }
   /* Small field label: sentence case, readable, quiet. */
   .label {
-    @apply text-xs font-medium text-ink-faint;
+    @apply text-[0.72rem] font-medium text-ink-faint;
+  }
+  /* Supporting paragraph directly under a panel heading. */
+  .panel-note {
+    @apply max-w-2xl text-[0.82rem] leading-relaxed text-ink-soft;
   }
   .field {
-    @apply w-full rounded-xl border border-line-strong bg-surface px-4 py-2.5 text-sm
+    @apply w-full rounded-lg border border-line-strong bg-surface px-3.5 py-2.5 text-sm
       text-ink outline-none transition-colors placeholder:text-ink-faint
       focus:border-brand focus:ring-0;
   }
   .prose-plain {
-    @apply text-[0.94rem] leading-relaxed text-ink;
+    @apply text-[0.9rem] leading-relaxed text-ink;
   }
   .rule-left {
     @apply border-l-2 pl-3;
   }
+  .meta {
+    @apply text-[0.72rem] text-ink-faint;
+  }
+}
+
+/* Segmented control: one row of options, the chosen one raised on the surface. */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-sunken);
+}
+.seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms, box-shadow 150ms;
+}
+.seg-item:hover {
+  color: var(--color-ink);
+}
+.seg-item[data-active="true"] {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow: 0 1px 2px rgb(16 18 21 / 0.08);
+}
+.seg-item[data-tone="good"][data-active="true"] {
+  color: var(--color-good);
+}
+.seg-item[data-tone="crit"][data-active="true"] {
+  color: var(--color-crit);
+}
+.seg-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 /* Quoted document text: always visually distinct from our own words. */
 .evidence {
-  @apply rounded-xl border-l-[3px] border-line-strong bg-sunken py-2.5 pr-3.5 pl-3.5
-    text-[0.82rem] leading-relaxed whitespace-pre-wrap text-ink-soft;
+  @apply rounded-r-md border-l-2 border-line-strong bg-sunken py-2 pr-3 pl-3
+    text-[0.78rem] leading-relaxed whitespace-pre-wrap text-ink-soft;
 }
 
 /* Entrance for panels: rises a little, once. */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -162,7 +216,7 @@ body {
   }
 }
 .rise {
-  animation: rise 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: rise 0.36s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 .rise-1 { animation-delay: 60ms; }
 .rise-2 { animation-delay: 120ms; }

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Repeat } from "lucide-react";
 import DeadlineList from "../DeadlineList.jsx";
-import { Empty, Panel, StatusChip, ws } from "./common.jsx";
+import { Empty, Panel, SourceText, StatusChip, ws } from "./common.jsx";
 import { EVIDENCE, TIMELINE, daysUntil, timelineStatus } from "../../labels.js";
 
 const ORDER = ["overdue", "due_soon", "upcoming", "needs_verification"];
@@ -24,35 +24,42 @@ function countdown(item, language) {
   return `${language === "ml" ? "" : "in "}${days}${language === "ml" ? " ദിവസത്തിൽ" : " days"}`;
 }
 
-function Item({ item, status, language }) {
+function Item({ item, language }) {
   return (
-    <li className="py-3 first:pt-0 last:pb-0">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium tabular-nums">
+    <li className="grid gap-1 py-3.5 first:pt-3 last:pb-3 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-5">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <p className="text-[0.82rem] font-semibold tabular-nums">
           {item.date_iso ? formatDate(item.date_iso, language) : item.date_text}
         </p>
-        <StatusChip map={TIMELINE} status={status} language={language} />
-        {status !== "needs_verification" && countdown(item, language) && (
-          <span className="text-xs text-ink-soft">{countdown(item, language)}</span>
-        )}
-        {item.evidence_status === "calculated" && (
-          <StatusChip map={EVIDENCE} status="calculated" language={language} />
-        )}
-      </div>
-      <p className="mt-1 text-xs leading-relaxed text-ink-soft">{item.description}</p>
-      {item.recurrence && (
-        <p className="mt-1 flex items-center gap-1 text-xs text-warn">
-          <Repeat size={12} />
-          {ws(language, "recurring")}: {item.recurrence}
+        <p className="text-[0.7rem] text-ink-faint">
+          {timelineStatus(item) !== "needs_verification" && countdown(item, language)}
         </p>
-      )}
-      {item.evidence_status === "calculated" && (
-        <p className="mt-1 text-xs text-warn">{ws(language, "calculatedNote")}</p>
-      )}
-      <p className="evidence mt-2">
-        {item.page != null && `${ws(language, "page")} ${item.page} · `}
-        {item.source_text}
-      </p>
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[0.85rem] leading-relaxed text-ink">{item.description}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.7rem] text-ink-faint">
+          {item.evidence_status === "calculated" && (
+            <StatusChip map={EVIDENCE} status="calculated" language={language} />
+          )}
+          {item.recurrence && (
+            <span className="inline-flex items-center gap-1 text-warn">
+              <Repeat size={11} /> {ws(language, "recurring")}: {item.recurrence}
+            </span>
+          )}
+          {item.page != null && (
+            <span className="tabular-nums">
+              {ws(language, "page")} {item.page}
+            </span>
+          )}
+        </p>
+        {item.evidence_status === "calculated" && (
+          <p className="mt-1 text-[0.7rem] leading-relaxed text-ink-faint">
+            {ws(language, "calculatedNote")}
+          </p>
+        )}
+        <SourceText className="mt-2" text={item.source_text} language={language} />
+      </div>
     </li>
   );
 }
@@ -80,16 +87,19 @@ export default function TimelinePanel({ deadlines, filename, language }) {
   return (
     <div className="space-y-4">
       <Panel title={ws(language, "timeline")}>
-        <p className="text-xs leading-relaxed text-ink-soft">{ws(language, "timelineNote")}</p>
-        <div className="mt-4 space-y-5">
+        <p className="panel-note">{ws(language, "timelineNote")}</p>
+        <div className="mt-5 space-y-6">
           {ORDER.filter((key) => groups[key].length > 0).map((key) => (
             <div key={key}>
-              <p className="mb-2">
+              <div className="flex items-center gap-2.5 border-b border-line pb-2">
                 <StatusChip map={TIMELINE} status={key} language={language} />
-              </p>
-              <ul className="divide-y divide-line border-l-2 border-line pl-4">
+                <span className="text-[0.72rem] tabular-nums text-ink-faint">
+                  {groups[key].length}
+                </span>
+              </div>
+              <ul className="divide-y divide-line">
                 {groups[key].map((item) => (
-                  <Item key={item.id} item={item} status={key} language={language} />
+                  <Item key={item.id} item={item} language={language} />
                 ))}
               </ul>
             </div>

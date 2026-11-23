@@ -4,9 +4,9 @@ import AudioControls from "./AudioControls.jsx";
 
 function Stat({ label, value, title }) {
   return (
-    <div className="min-w-0 rounded-xl bg-sunken px-4 py-3">
+    <div className="min-w-0 border-t border-line pt-2.5">
       <p className="label">{label}</p>
-      <p className="mt-1 truncate text-sm font-semibold" title={title ?? value}>
+      <p className="mt-1 truncate text-[0.82rem] font-medium" title={title ?? value}>
         {value}
       </p>
     </div>
@@ -18,9 +18,11 @@ export default function DocumentOverview({ result, language, speech }) {
   const uncertain = !classification.certain;
 
   return (
-    <section className="card p-5 sm:p-7">
+    <section className="card p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-[-0.02em]">{t(language, "summary")}</h2>
+        <h2 className="text-[1.02rem] leading-tight font-semibold tracking-[-0.02em]">
+          {t(language, "summary")}
+        </h2>
         {result.summary && (
           <AudioControls
             id="summary"
@@ -37,23 +39,25 @@ export default function DocumentOverview({ result, language, speech }) {
       {result.summary ? (
         <>
           <p
-            className={`mt-3 max-w-3xl text-[1.06rem] leading-[1.7] text-ink ${
+            className={`mt-3 max-w-3xl text-[0.98rem] leading-[1.7] text-ink ${
               language === "ml" ? "lang-ml" : ""
             }`}
           >
             {result.summary}
           </p>
           {result.summary_source === "rules" && (
-            <p className="mt-2 text-xs text-ink-faint">
+            <p className="mt-2 text-[0.72rem] text-ink-faint">
               Written from rule output, not from the AI model.
             </p>
           )}
         </>
       ) : (
-        <p className="mt-3 text-sm text-ink-soft">No summary was produced for this document.</p>
+        <p className="mt-3 text-[0.85rem] text-ink-soft">
+          No summary was produced for this document.
+        </p>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4">
         <Stat label={t(language, "docType")} value={classification.label} />
         <Stat label={t(language, "pages")} value={String(result.page_count)} />
         <Stat
@@ -71,8 +75,8 @@ export default function DocumentOverview({ result, language, speech }) {
       </div>
 
       {uncertain && (
-        <p className="mt-4 flex items-start gap-2.5 rounded-xl bg-warn-soft px-4 py-3 text-[0.82rem] leading-relaxed text-warn">
-          <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+        <p className="mt-5 flex items-start gap-2.5 rounded-lg border border-warn/25 bg-warn-soft px-3.5 py-3 text-[0.8rem] leading-relaxed text-warn">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>
             Document type uncertain. The facts are still read directly from the text,
             but the field names come from the closest matching type.
@@ -81,8 +85,8 @@ export default function DocumentOverview({ result, language, speech }) {
       )}
 
       {result.ocr_used && (
-        <p className="mt-3 flex items-start gap-2.5 rounded-xl bg-note-soft px-4 py-3 text-[0.82rem] leading-relaxed text-note">
-          <ScanLine size={15} className="mt-0.5 shrink-0" />
+        <p className="mt-2.5 flex items-start gap-2.5 rounded-lg border border-note/25 bg-note-soft px-3.5 py-3 text-[0.8rem] leading-relaxed text-note">
+          <ScanLine size={14} className="mt-0.5 shrink-0" />
           <span>
             Some pages had no selectable text, so OCR was used. OCR can misread
             characters &mdash; check any amount or date against the original.
