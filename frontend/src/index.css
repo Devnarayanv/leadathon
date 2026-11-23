@@ -162,6 +162,15 @@ body {
   }
 }
 
+/* Disabled accent buttons keep their blue and white label instead of fading
+   into the page: dimming the whole button turned it grey and unreadable. */
+.btn-accent:disabled {
+  opacity: 1;
+  color: color-mix(in srgb, var(--color-on-brand) 82%, transparent);
+  background: color-mix(in srgb, var(--color-brand) 85%, var(--color-surface));
+  box-shadow: none;
+}
+
 /* Segmented control: one row of options, the chosen one raised on the surface. */
 .seg {
   display: inline-flex;
