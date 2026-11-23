@@ -53,6 +53,10 @@ app = FastAPI(
     title="Doc Decode API",
     version="1.0.0",
     description="Local document understanding. Rule engine plus a local Ollama model.",
+    # Disable the interactive docs in production to reduce attack surface.
+    # They are still available during development (uvicorn --reload).
+    docs_url="/docs",
+    redoc_url=None,
 )
 
 app.add_middleware(
@@ -60,8 +64,27 @@ app.add_middleware(
     allow_origins=config.CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Accept"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Security headers — defence in depth even on localhost.
+# ---------------------------------------------------------------------------
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 @app.exception_handler(pipeline.UploadRejected)
@@ -275,6 +298,10 @@ def demo_list() -> List[DemoDocument]:
 @app.get("/api/demo/{demo_id}/file")
 def demo_file(demo_id: str) -> Response:
     """Serve an allowlisted demo PDF. The client sends an id, never a path."""
+    # Sanitise the demo_id: only alphanumeric, hyphens and underscores.
+    import re as _re
+    if not _re.fullmatch(r"[A-Za-z0-9_-]{1,80}", demo_id):
+        raise HTTPException(status_code=400, detail="Invalid demo id.")
     data = demo_catalog.file_bytes(demo_id)
     name = demo_catalog.filename_for(demo_id)
     if data is None or name is None:

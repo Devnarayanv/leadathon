@@ -115,6 +115,9 @@ def synthesize(text: str, language: str = "en", speed: int = 150) -> bytes:
         cleaned = cleaned[:MAX_TTS_CHARS]
 
     voice = VOICE_BY_LANGUAGE.get(language, "en-gb")
+    # Validate voice name contains only safe characters (defence in depth).
+    if not all(c.isalnum() or c in "-_" for c in voice):
+        raise ValueError("Invalid voice identifier.")
     # Argument list, never a shell string: the text is document-derived and must
     # not be interpreted by a shell.
     command = [

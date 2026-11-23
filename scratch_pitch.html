@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Doc Decode — Hackathon Pitch Guide</title>
+<style>
+  @page { size: A4; margin: 18mm 20mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a; line-height: 1.55; font-size: 13px; padding: 0; }
+  h1 { font-size: 26px; text-align: center; margin: 0 0 4px; color: #0f172a; }
+  h1 span { color: #2563eb; }
+  .subtitle { text-align: center; font-size: 14px; color: #64748b; margin-bottom: 22px; }
+  h2 { font-size: 16px; color: #1e40af; border-bottom: 2px solid #2563eb; padding-bottom: 3px; margin: 22px 0 10px; }
+  h3 { font-size: 13.5px; color: #334155; margin: 12px 0 6px; }
+  p, li { font-size: 13px; }
+  ul, ol { margin-left: 20px; margin-bottom: 8px; }
+  li { margin-bottom: 4px; }
+  blockquote { background: #eff6ff; border-left: 4px solid #2563eb; padding: 10px 14px; margin: 10px 0; border-radius: 4px; font-style: italic; color: #1e3a5f; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 12.5px; }
+  th { background: #1e40af; color: #fff; text-align: left; padding: 7px 10px; font-weight: 600; }
+  td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .highlight-box { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 10px 14px; margin: 10px 0; }
+  .highlight-box strong { color: #92400e; }
+  .closing { background: #0f172a; color: #fff; padding: 16px 20px; border-radius: 8px; margin: 18px 0 8px; }
+  .closing p { color: #e2e8f0; font-size: 13.5px; line-height: 1.6; }
+  .closing em { color: #93c5fd; font-style: normal; font-weight: 600; }
+  .tip { background: #f0fdf4; border-left: 4px solid #22c55e; padding: 8px 14px; margin: 10px 0; border-radius: 4px; font-size: 12.5px; }
+  .emoji { font-size: 15px; margin-right: 4px; }
+  .badge { display: inline-block; background: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-right: 4px; }
+  .page-break { page-break-before: always; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+  .card h3 { margin-top: 0; }
+  .num { display: inline-block; background: #2563eb; color: #fff; width: 22px; height: 22px; text-align: center; border-radius: 50%; font-size: 12px; line-height: 22px; margin-right: 6px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1><span>🎯</span> DOC DECODE</h1>
+<p class="subtitle">Hackathon Pitch Guide — Understand Before You Sign</p>
+
+<!-- ONE-LINER -->
+<h2><span class="emoji">🗣️</span> One-Liner Pitch</h2>
+<blockquote>
+"Doc Decode reads your rental agreements, loan papers, hospital bills, and government notices — and tells you what actually matters, in plain language, before you sign."
+</blockquote>
+
+<!-- CUSTOMER -->
+<h2><span class="emoji">👤</span> Who Is Your Customer?</h2>
+<ol>
+  <li><strong>Everyday Indians</strong> signing rental agreements, loan documents, or hospital discharge papers — people who can't afford a lawyer for every piece of paper</li>
+  <li><strong>Small business owners</strong> dealing with tenders, purchase orders, invoices, and government notices</li>
+  <li><strong>Senior citizens / first-time renters</strong> who struggle with legal jargon</li>
+  <li><strong>Malayalam-speaking users</strong> in Kerala who need documents decoded in their own language</li>
+  <li><strong>Anyone who has ever signed something they didn't fully understand</strong> — that's basically everyone</li>
+</ol>
+<div class="highlight-box">
+  <strong>💡 Key stat:</strong> "In India, over 90% of people sign documents they don't fully read. We're their second pair of eyes."
+</div>
+
+<!-- WHY BUY -->
+<h2><span class="emoji">💰</span> Why Should They Use This?</h2>
+<table>
+  <thead><tr><th>Pain Point</th><th>Doc Decode Solution</th></tr></thead>
+  <tbody>
+    <tr><td>"I don't understand legal jargon"</td><td>Explains every risky clause in <strong>plain English or Malayalam</strong></td></tr>
+    <tr><td>"I missed a hidden penalty clause"</td><td>Flags <strong>12 categories</strong> of risky clauses — auto-renewal traps, late fees, one-sided conditions, lock-ins</td></tr>
+    <tr><td>"I forgot a deadline and lost money"</td><td>Extracts <strong>all deadlines</strong> + lets you export them to your <strong>calendar (.ics)</strong></td></tr>
+    <tr><td>"I can't afford a lawyer for every paper"</td><td><strong>100% free, runs on YOUR laptop</strong> — no subscription, no cloud</td></tr>
+    <tr><td>"I don't trust AI with my private documents"</td><td><strong>Zero cloud dependency</strong> — Ollama runs locally, no API key, no data stored</td></tr>
+  </tbody>
+</table>
+
+<!-- WHAT IT DOES -->
+<h2><span class="emoji">⚡</span> What Does It Do? (Demo Flow — 2 min)</h2>
+<ol>
+  <li><span class="num">1</span><strong>Upload</strong> a PDF, photo, or scan → drag &amp; drop</li>
+  <li><span class="num">2</span><strong>Auto-classifies</strong> the document (rental, loan, hospital bill, government notice, invoice, tender)</li>
+  <li><span class="num">3</span><strong>Extracts hard facts</strong>: rent amount, deposit, interest rate, EMI, due dates, totals — with page numbers</li>
+  <li><span class="num">4</span><strong>Flags risky clauses</strong> across 12 categories with attention levels (⚠️ attention → 🔴 unusual)</li>
+  <li><span class="num">5</span><strong>Explains each clause in plain language</strong> — "This means if you leave before 6 months, you lose your entire deposit"</li>
+  <li><span class="num">6</span><strong>Deadlines dashboard</strong> → tick the ones that matter → <strong>export to Google Calendar</strong></li>
+  <li><span class="num">7</span><strong>Ask questions</strong> — "What happens if I pay late?" → grounded answer with evidence</li>
+  <li><span class="num">8</span><strong>Read aloud</strong> — works in Malayalam too (offline voice)</li>
+  <li><span class="num">9</span><strong>Compare documents</strong> — match invoice vs. purchase order, spot mismatches</li>
+  <li><span class="num">10</span><strong>Tender eligibility checker</strong> — check if you qualify for a government tender</li>
+</ol>
+
+<div class="page-break"></div>
+
+<!-- UNIQUE -->
+<h2><span class="emoji">🔥</span> What Makes It Attractive / Unique?</h2>
+
+<div class="two-col">
+  <div class="card">
+    <h3>1. AI That Can't Hallucinate Facts</h3>
+    <p>Facts come from <strong>regex + rules</strong> → deterministic, reproducible, never invented. The LLM only <em>explains</em> what the rules already found. If Ollama is down, the app <strong>still works</strong>.</p>
+  </div>
+  <div class="card">
+    <h3>2. 100% Offline &amp; Private</h3>
+    <p>No cloud. No API key. No data stored. No database. Document is in memory for one request, then dropped. <strong>Perfect for sensitive documents.</strong></p>
+  </div>
+  <div class="card">
+    <h3>3. Bilingual — English + Malayalam</h3>
+    <p>Full Malayalam OCR, fact extraction, and UI. Handles <code>18,500 രൂപ</code>, <code>11 മാസം</code>. Chillu character folding for OCR accuracy.</p>
+  </div>
+  <div class="card">
+    <h3>4. Works on Scans &amp; Photos</h3>
+    <p>OCR fallback with Tesseract — only for pages that need it. Upload a photo from WhatsApp → it works.</p>
+  </div>
+</div>
+
+<ul style="margin-top: 10px;">
+  <li><strong>Calendar export for deadlines</strong> — "Never miss a reply-by date again"</li>
+  <li><strong>118 tests</strong>, including false-positive tests and prompt injection protection</li>
+</ul>
+
+<!-- FUTURE SCOPE -->
+<h2><span class="emoji">🚀</span> Future Scope</h2>
+<table>
+  <thead><tr><th>Phase</th><th>Features</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="badge">Near-term</span></td>
+      <td>
+        More document types (insurance, employment contracts, property deeds)<br>
+        More Indian languages (Hindi, Tamil, Kannada, Telugu)<br>
+        Mobile app — snap a photo, get analysis<br>
+        WhatsApp bot — forward a document, get a summary back
+      </td>
+    </tr>
+    <tr>
+      <td><span class="badge">Medium-term</span></td>
+      <td>
+        Document comparison at scale (old lease vs new lease → what changed?)<br>
+        Clause negotiation suggestions — "Ask your landlord to change THIS"<br>
+        Community-sourced clause database — flag known predatory clauses<br>
+        Integration with DigiLocker for verified government documents
+      </td>
+    </tr>
+    <tr>
+      <td><span class="badge">Long-term</span></td>
+      <td>
+        Legal aid marketplace — connect flagged issues to affordable lawyers<br>
+        Enterprise version for banks/NBFCs — compliance checking at intake<br>
+        API-as-a-service for fintech apps (loan origination, insurance)<br>
+        Handwriting recognition with TrOCR models
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- CLOSING -->
+<h2><span class="emoji">🎤</span> Closing Line for the Stage</h2>
+<div class="closing">
+  <p>"We're not replacing lawyers. We're making sure the <em>90% of Indians who can't access one</em> still understand what they're signing. And everything — every calculation, every flag — stays on your machine. <em>Your documents are nobody's business but yours.</em>"</p>
+</div>
+
+<div class="tip">
+  <strong>🎯 Demo tip:</strong> Drop the <code>demo_rental_agreement.pdf</code> first — it triggers 9 clause categories and has an auto-renewal trap that always gets a reaction from the audience.
+</div>
+
+</body>
+</html>

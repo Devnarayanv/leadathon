@@ -53,6 +53,8 @@ class UploadRejected(ValueError):
 
 def _extension(filename: str) -> str:
     name = (filename or "").lower().strip()
+    # Strip any path components — only the basename matters for validation.
+    name = name.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
     dot = name.rfind(".")
     return name[dot:] if dot != -1 else ""
 
